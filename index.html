@@ -1328,8 +1328,8 @@
           }
           const heightCSS = usedHeightWithoutBottom + bottomAreaHeight;
           
-          // Use 3x multiplier for high-quality export (instead of device pixel ratio)
-          const exportScale = 3;
+          // Use high-quality export scale
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
           const canvas=document.createElement('canvas');
           canvas.width=Math.round(widthCSS*exportScale);
           canvas.height=Math.round(heightCSS*exportScale);
@@ -1366,7 +1366,7 @@
           });
           
           // Use helper function for optimal format export
-          return canvasToDataURL(canvas, 0.95);
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
         }catch(e){ return ''; }
       }
 
@@ -1481,8 +1481,8 @@
           const square=document.querySelector('#storePosterImgWrap .poster-square');
           if(!square) return '';
           
-          // Use 3x multiplier for high-quality export (instead of device pixel ratio)
-          const exportScale = 3;
+          // Use high-quality export scale
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
           const rect=square.getBoundingClientRect();
           const size=Math.round(rect.width);
           const canvas=document.createElement('canvas');
@@ -1569,7 +1569,7 @@
           });
 
           // Use helper function for optimal format export
-          return canvasToDataURL(canvas, 0.95);
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
         }catch(e){ return ''; }
       }
 
@@ -1588,6 +1588,10 @@
       let photoCache={};
       let emojiCache={};
       
+      // High-quality export settings
+      const EXPORT_SCALE_MULTIPLIER = 3; // 3x resolution for high-quality exports
+      const EXPORT_QUALITY = 0.95; // WebP/JPEG quality (0-1)
+      
       // Cache WebP support detection
       let webpSupported = null;
       function supportsWebP() {
@@ -1599,7 +1603,7 @@
       }
       
       // Helper function to convert canvas to data URL with optimal format
-      function canvasToDataURL(canvas, quality = 0.95) {
+      function canvasToDataURL(canvas, quality = EXPORT_QUALITY) {
         if (supportsWebP()) {
           return canvas.toDataURL('image/webp', quality);
         } else {
@@ -1608,14 +1612,15 @@
       }
       
       // Helper function to convert canvas to blob with optimal format
-      async function canvasToBlob(canvas, quality = 0.95) {
+      async function canvasToBlob(canvas, quality = EXPORT_QUALITY) {
         return new Promise((resolve, reject) => {
           try {
             const callback = (blob) => {
               if (blob) {
                 resolve(blob);
               } else {
-                reject(new Error('Failed to create blob from canvas'));
+                const format = supportsWebP() ? 'WebP' : 'PNG';
+                reject(new Error(`Failed to create ${format} blob from canvas (dimensions: ${canvas.width}x${canvas.height})`));
               }
             };
             
@@ -2801,8 +2806,7 @@
           const S = frameViewport.offsetWidth; // Square frame size (CSS pixels)
           
           // Export at high resolution for quality preservation
-          // Use 3x multiplier for high-quality output (up to 1560px for a 520px viewport)
-          const exportScale = 3;
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
           const exportSize = S * exportScale;
           
           const canvas = document.createElement('canvas');
@@ -2830,12 +2834,13 @@
           ctx.restore();
           
           // Create blob once for both data URL and object URL (efficient)
-          const blob = await canvasToBlob(canvas, 0.95);
+          const blob = await canvasToBlob(canvas, EXPORT_QUALITY);
           
-          // Convert blob to data URL for storage
+          // Convert blob to data URL for storage with error handling
           const reader = new FileReader();
-          draftPhotoData = await new Promise(resolve => {
+          draftPhotoData = await new Promise((resolve, reject) => {
             reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
             reader.readAsDataURL(blob);
           });
           
