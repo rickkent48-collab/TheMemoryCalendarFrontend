@@ -1282,7 +1282,7 @@
       
       function supportsWebP() {
         if (webpSupported !== null) return webpSupported;
-        webpSupported = testCanvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        webpSupported = testCanvas.toDataURL('image/webp').startsWith('data:image/webp');
         return webpSupported;
       }
       
@@ -1299,16 +1299,17 @@
       async function canvasToBlob(canvas, quality = EXPORT_QUALITY) {
         return new Promise((resolve, reject) => {
           try {
+            const useWebP = supportsWebP(); // Cache format detection result
             const callback = (blob) => {
               if (blob) {
                 resolve(blob);
               } else {
-                const format = supportsWebP() ? 'WebP' : 'PNG';
+                const format = useWebP ? 'WebP' : 'PNG';
                 reject(new Error(`Failed to create ${format} blob from canvas (dimensions: ${canvas.width}x${canvas.height})`));
               }
             };
             
-            if (supportsWebP()) {
+            if (useWebP) {
               canvas.toBlob(callback, 'image/webp', quality);
             } else {
               canvas.toBlob(callback, 'image/png');
