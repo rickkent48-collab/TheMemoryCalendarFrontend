@@ -1268,6 +1268,57 @@
         delivery:{eur:'€4.99', gbp:'£4.99', usd:'$6.99', cad:'C$8.99', aud:'A$9.99'}
       };
 
+      // High-quality export settings
+      const EXPORT_SCALE_MULTIPLIER = 3; // 3x resolution for high-quality exports
+      const EXPORT_QUALITY = 0.95; // WebP/JPEG quality (0-1)
+      
+      // Cache WebP support detection (test canvas created once)
+      let webpSupported = null;
+      const testCanvas = (() => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        return c;
+      })();
+      
+      function supportsWebP() {
+        if (webpSupported !== null) return webpSupported;
+        webpSupported = testCanvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        return webpSupported;
+      }
+      
+      // Helper function to convert canvas to data URL with optimal format
+      function canvasToDataURL(canvas, quality = EXPORT_QUALITY) {
+        if (supportsWebP()) {
+          return canvas.toDataURL('image/webp', quality);
+        } else {
+          return canvas.toDataURL('image/png');
+        }
+      }
+      
+      // Helper function to convert canvas to blob with optimal format
+      async function canvasToBlob(canvas, quality = EXPORT_QUALITY) {
+        return new Promise((resolve, reject) => {
+          try {
+            const callback = (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                const format = supportsWebP() ? 'WebP' : 'PNG';
+                reject(new Error(`Failed to create ${format} blob from canvas (dimensions: ${canvas.width}x${canvas.height})`));
+              }
+            };
+            
+            if (supportsWebP()) {
+              canvas.toBlob(callback, 'image/webp', quality);
+            } else {
+              canvas.toBlob(callback, 'image/png');
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+
       let currencyCode = tryGet(CURRENCY_KEY) || 'eur';
 
       function loadCartItems(){
@@ -1587,57 +1638,6 @@
 
       let photoCache={};
       let emojiCache={};
-      
-      // High-quality export settings
-      const EXPORT_SCALE_MULTIPLIER = 3; // 3x resolution for high-quality exports
-      const EXPORT_QUALITY = 0.95; // WebP/JPEG quality (0-1)
-      
-      // Cache WebP support detection (test canvas created once)
-      let webpSupported = null;
-      const testCanvas = (() => {
-        const c = document.createElement('canvas');
-        c.width = c.height = 1;
-        return c;
-      })();
-      
-      function supportsWebP() {
-        if (webpSupported !== null) return webpSupported;
-        webpSupported = testCanvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-        return webpSupported;
-      }
-      
-      // Helper function to convert canvas to data URL with optimal format
-      function canvasToDataURL(canvas, quality = EXPORT_QUALITY) {
-        if (supportsWebP()) {
-          return canvas.toDataURL('image/webp', quality);
-        } else {
-          return canvas.toDataURL('image/png');
-        }
-      }
-      
-      // Helper function to convert canvas to blob with optimal format
-      async function canvasToBlob(canvas, quality = EXPORT_QUALITY) {
-        return new Promise((resolve, reject) => {
-          try {
-            const callback = (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                const format = supportsWebP() ? 'WebP' : 'PNG';
-                reject(new Error(`Failed to create ${format} blob from canvas (dimensions: ${canvas.width}x${canvas.height})`));
-              }
-            };
-            
-            if (supportsWebP()) {
-              canvas.toBlob(callback, 'image/webp', quality);
-            } else {
-              canvas.toBlob(callback, 'image/png');
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }
 
       let capsMode = tryGet(CAPS_KEY) || 'none';
       applyCapsMode(capsMode,false);
