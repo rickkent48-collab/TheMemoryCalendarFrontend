@@ -1268,6 +1268,58 @@
         delivery:{eur:'€4.99', gbp:'£4.99', usd:'$6.99', cad:'C$8.99', aud:'A$9.99'}
       };
 
+      // High-quality export settings
+      const EXPORT_SCALE_MULTIPLIER = 3; // 3x resolution for high-quality exports
+      const EXPORT_QUALITY = 0.95; // WebP/JPEG quality (0-1)
+      
+      // Cache WebP support detection (test canvas created once)
+      let webpSupported = null;
+      const testCanvas = (() => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        return c;
+      })();
+      
+      function supportsWebP() {
+        if (webpSupported !== null) return webpSupported;
+        webpSupported = testCanvas.toDataURL('image/webp').startsWith('data:image/webp');
+        return webpSupported;
+      }
+      
+      // Helper function to convert canvas to data URL with optimal format
+      function canvasToDataURL(canvas, quality = EXPORT_QUALITY) {
+        if (supportsWebP()) {
+          return canvas.toDataURL('image/webp', quality);
+        } else {
+          return canvas.toDataURL('image/png');
+        }
+      }
+      
+      // Helper function to convert canvas to blob with optimal format
+      async function canvasToBlob(canvas, quality = EXPORT_QUALITY) {
+        return new Promise((resolve, reject) => {
+          try {
+            const useWebP = supportsWebP(); // Cache format detection result
+            const callback = (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                const format = useWebP ? 'WebP' : 'PNG';
+                reject(new Error(`Failed to create ${format} blob from canvas (dimensions: ${canvas.width}x${canvas.height})`));
+              }
+            };
+            
+            if (useWebP) {
+              canvas.toBlob(callback, 'image/webp', quality);
+            } else {
+              canvas.toBlob(callback, 'image/png');
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+
       let currencyCode = tryGet(CURRENCY_KEY) || 'eur';
 
       function loadCartItems(){
@@ -1327,12 +1379,14 @@
             bottomAreaHeight = linesBlockHeight + border;
           }
           const heightCSS = usedHeightWithoutBottom + bottomAreaHeight;
-          const dpr = Math.min(2, window.devicePixelRatio||1);
+          
+          // Use high-quality export scale
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
           const canvas=document.createElement('canvas');
-          canvas.width=Math.round(widthCSS*dpr);
-          canvas.height=Math.round(heightCSS*dpr);
-          const ctx=canvas.getContext('2d');
-          ctx.scale(dpr,dpr);
+          canvas.width=Math.round(widthCSS*exportScale);
+          canvas.height=Math.round(heightCSS*exportScale);
+          const ctx=canvas.getContext('2d', { alpha: false });
+          ctx.scale(exportScale, exportScale);
           ctx.fillStyle='#ffffff';
           ctx.fillRect(0,0,widthCSS,heightCSS);
           const imgX=border, imgY=border;
@@ -1362,7 +1416,9 @@
           lines.forEach((line, i)=>{
             ctx.fillText(line, widthCSS/2, startCenterY + i*sumLineH);
           });
-          return canvas.toDataURL('image/png');
+          
+          // Use helper function for optimal format export
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
         }catch(e){ return ''; }
       }
 
@@ -1476,14 +1532,16 @@
         try{
           const square=document.querySelector('#storePosterImgWrap .poster-square');
           if(!square) return '';
-          const dpr=Math.min(2,window.devicePixelRatio||1);
+          
+          // Use high-quality export scale
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
           const rect=square.getBoundingClientRect();
           const size=Math.round(rect.width);
           const canvas=document.createElement('canvas');
-          canvas.width=size*dpr;
-          canvas.height=size*dpr;
-          const ctx=canvas.getContext('2d');
-          ctx.scale(dpr,dpr);
+          canvas.width=size*exportScale;
+          canvas.height=size*exportScale;
+          const ctx=canvas.getContext('2d', { alpha: false });
+          ctx.scale(exportScale, exportScale);
 
           const topbarH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))||64;
           const bodyH=window.innerHeight||size;
@@ -1545,6 +1603,8 @@
                 const dx=x - (dw - w)/2;
                 const dy=y - (dh - h)/2;
                 ctx.clip();
+                ctx.imageSmoothingEnabled=true;
+                ctx.imageSmoothingQuality='high';
                 ctx.drawImage(im, dx, dy, dw, dh);
               }
             }else{
@@ -1560,7 +1620,8 @@
             ctx.restore();
           });
 
-          return canvas.toDataURL('image/png');
+          // Use helper function for optimal format export
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
         }catch(e){ return ''; }
       }
 
@@ -1570,6 +1631,7 @@
       let isEditMode=true;
       let hadSummary=false;
       let draftPhotoData=null;
+      let draftPhotoObjectURL=null; // Object URL for preview (revoked after save)
 
       let selectedDateKey=null;
       let originalData={ note:'', icon:'', word:'', song:'', movie:'', show:'' };
@@ -2110,6 +2172,12 @@
             }
           }
           draftPhotoData=null;
+          
+          // Clean up object URL if it exists
+          if(draftPhotoObjectURL){
+            URL.revokeObjectURL(draftPhotoObjectURL);
+            draftPhotoObjectURL=null;
+          }
         }
         trySet(`note-${base}`,editingData.note||'');
         trySet(`icon-${base}`,editingData.icon||'');
@@ -2400,6 +2468,12 @@
 
       dayBackdrop.addEventListener('click', ()=>{ closeDayModal(); });
       function closeDayModal(){
+        // Clean up object URL if it exists
+        if(draftPhotoObjectURL){
+          URL.revokeObjectURL(draftPhotoObjectURL);
+          draftPhotoObjectURL=null;
+        }
+        
         dayModal.style.display='none';
         dayBackdrop.style.display='none';
         unlockBodyScroll();
@@ -2515,48 +2589,49 @@
       });
 
       function openFrameModal(file) {
-        const reader = new FileReader();
-        reader.onload = (e)=> {
-          const dataUrl = e.target.result;
-          frameImg.src = dataUrl;
-          frameImg.onload = ()=> {
-            // Show modal BEFORE measuring viewport dimensions
-            frameModal.style.display = 'flex';
-            
-            // Calculate initial scale based on image aspect ratio
-            const S = frameViewport.offsetWidth; // Square frame (S×S)
-            const imgWidth = frameImg.naturalWidth;
-            const imgHeight = frameImg.naturalHeight;
-            const imgAspect = imgWidth / imgHeight;
-            
-            let scale, x, y;
-            
-            if (Math.abs(imgAspect - 1) < SQUARE_ASPECT_TOLERANCE) {
-              // Square image: fills frame exactly
-              scale = S / imgWidth;
-              x = 0;
-              y = 0;
-            } else if (imgAspect < 1) {
-              // Portrait image: width = frame width, vertically centered with overflow
-              scale = S / imgWidth;
-              x = 0;
-              y = (S - imgHeight * scale) / 2;
-            } else {
-              // Landscape image: height = frame height, horizontally centered with overflow
-              scale = S / imgHeight;
-              x = (S - imgWidth * scale) / 2;
-              y = 0;
-            }
-            
-            baselineScale = scale; // Store as minimum allowed scale
-            currentFrameTransform = { scale, x, y };
-            applyFrameTransform();
-          };
+        // Use object URL for preview instead of reading as data URL
+        const objectUrl = URL.createObjectURL(file);
+        frameImg.src = objectUrl;
+        frameImg.onload = ()=> {
+          // Show modal BEFORE measuring viewport dimensions
+          frameModal.style.display = 'flex';
+          
+          // Calculate initial scale based on image aspect ratio
+          const S = frameViewport.offsetWidth; // Square frame (S×S)
+          const imgWidth = frameImg.naturalWidth;
+          const imgHeight = frameImg.naturalHeight;
+          const imgAspect = imgWidth / imgHeight;
+          
+          let scale, x, y;
+          
+          if (Math.abs(imgAspect - 1) < SQUARE_ASPECT_TOLERANCE) {
+            // Square image: fills frame exactly
+            scale = S / imgWidth;
+            x = 0;
+            y = 0;
+          } else if (imgAspect < 1) {
+            // Portrait image: width = frame width, vertically centered with overflow
+            scale = S / imgWidth;
+            x = 0;
+            y = (S - imgHeight * scale) / 2;
+          } else {
+            // Landscape image: height = frame height, horizontally centered with overflow
+            scale = S / imgHeight;
+            x = (S - imgWidth * scale) / 2;
+            y = 0;
+          }
+          
+          baselineScale = scale; // Store as minimum allowed scale
+          currentFrameTransform = { scale, x, y };
+          applyFrameTransform();
         };
-        reader.readAsDataURL(file);
       }
 
       function closeFrameModal() {
+        // Revoke object URL to prevent memory leaks
+        if (frameImg.src && frameImg.src.startsWith('blob:')) {
+          URL.revokeObjectURL(frameImg.src);
+        }
         frameModal.style.display = 'none';
         frameImg.src = '';
         currentFrameTransform = { scale: 1, x: 0, y: 0 };
@@ -2731,13 +2806,18 @@
       }, { passive: false });
 
       frameUseBtn.addEventListener('click', async ()=> {
-        // Capture the framed image and save to day edit draft
+        // Capture the framed image and save to day edit draft at high quality
         try {
-          const S = frameViewport.offsetWidth; // Square frame size
+          const S = frameViewport.offsetWidth; // Square frame size (CSS pixels)
+          
+          // Export at high resolution for quality preservation
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
+          const exportSize = S * exportScale;
+          
           const canvas = document.createElement('canvas');
-          canvas.width = S;
-          canvas.height = S;
-          const ctx = canvas.getContext('2d');
+          canvas.width = exportSize;
+          canvas.height = exportSize;
+          const ctx = canvas.getContext('2d', { alpha: false });
           
           // Ensure pan is clamped before capture to prevent blank space
           clampPan();
@@ -2746,18 +2826,37 @@
           const imgWidth = frameImg.naturalWidth;
           const imgHeight = frameImg.naturalHeight;
           
-          // No background fill - transform ensures coverage
+          // Scale all transform values for high-res export
           ctx.save();
-          ctx.translate(x, y);
-          ctx.scale(scale, scale);
+          ctx.translate(x * exportScale, y * exportScale);
+          ctx.scale(scale * exportScale, scale * exportScale);
+          
+          // Use high quality image smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          
           ctx.drawImage(frameImg, 0, 0, imgWidth, imgHeight);
           ctx.restore();
           
-          const framedDataUrl = canvas.toDataURL('image/png');
+          // Create blob once for both data URL and object URL (efficient)
+          const blob = await canvasToBlob(canvas, EXPORT_QUALITY);
           
-          // Save to draft for day editing screen
-          draftPhotoData = framedDataUrl;
-          bigPreviewImg.src = framedDataUrl;
+          // Convert blob to data URL for storage with error handling
+          const reader = new FileReader();
+          draftPhotoData = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+            reader.readAsDataURL(blob);
+          });
+          
+          // Revoke previous object URL if exists
+          if (draftPhotoObjectURL) {
+            URL.revokeObjectURL(draftPhotoObjectURL);
+          }
+          
+          // Create object URL for preview (avoids re-encoding)
+          draftPhotoObjectURL = URL.createObjectURL(blob);
+          bigPreviewImg.src = draftPhotoObjectURL;
           bigPreviewImg.style.display = 'block';
           bigPreviewPlaceholder.style.display = 'none';
           
