@@ -3284,8 +3284,8 @@
             
             // If all retries failed, throw error
             if (!uploadSuccess) {
-              console.error(`[Upload Deferred Images] Failed to upload item ${i + 1} after 3 attempts`);
-              throw lastError || new Error(`Failed to upload item ${i + 1}`);
+              console.error(`[Upload Deferred Images] Failed to upload item ${i + 1}/${items.length} after 3 attempts (session: ${sessionId})`);
+              throw lastError || new Error(`Failed to upload item ${i + 1}/${items.length}`);
             }
           }
           
