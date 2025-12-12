@@ -1580,7 +1580,6 @@
       let hadSummary=false;
       let draftPhotoData=null;
       let draftPhotoObjectURL=null; // Object URL for preview (revoked after save)
-      let originalImageFile=null; // Original File reference for high-quality export
 
       let selectedDateKey=null;
       let originalData={ note:'', icon:'', word:'', song:'', movie:'', show:'' };
@@ -1610,11 +1609,23 @@
       
       // Helper function to convert canvas to blob with optimal format
       async function canvasToBlob(canvas, quality = 0.95) {
-        return new Promise(resolve => {
-          if (supportsWebP()) {
-            canvas.toBlob(resolve, 'image/webp', quality);
-          } else {
-            canvas.toBlob(resolve, 'image/png');
+        return new Promise((resolve, reject) => {
+          try {
+            const callback = (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to create blob from canvas'));
+              }
+            };
+            
+            if (supportsWebP()) {
+              canvas.toBlob(callback, 'image/webp', quality);
+            } else {
+              canvas.toBlob(callback, 'image/png');
+            }
+          } catch (error) {
+            reject(error);
           }
         });
       }
@@ -2564,7 +2575,6 @@
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         selectedImageFile = file;
-        originalImageFile = file; // Store original file for high-quality export
         openFrameModal(file);
       });
 
