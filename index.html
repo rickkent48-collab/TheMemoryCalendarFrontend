@@ -1365,13 +1365,8 @@
             ctx.fillText(line, widthCSS/2, startCenterY + i*sumLineH);
           });
           
-          // Export as WebP at high quality (0.95) for better compression than PNG
-          // Fallback to PNG if WebP is not supported
-          if (canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0) {
-            return canvas.toDataURL('image/webp', 0.95);
-          } else {
-            return canvas.toDataURL('image/png');
-          }
+          // Use helper function for optimal format export
+          return await canvasToDataURL(canvas, 0.95);
         }catch(e){ return ''; }
       }
 
@@ -1573,13 +1568,8 @@
             ctx.restore();
           });
 
-          // Export as WebP at high quality (0.95) for better compression than PNG
-          // Fallback to PNG if WebP is not supported
-          if (canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0) {
-            return canvas.toDataURL('image/webp', 0.95);
-          } else {
-            return canvas.toDataURL('image/png');
-          }
+          // Use helper function for optimal format export
+          return await canvasToDataURL(canvas, 0.95);
         }catch(e){ return ''; }
       }
 
@@ -1598,6 +1588,36 @@
 
       let photoCache={};
       let emojiCache={};
+      
+      // Cache WebP support detection
+      let webpSupported = null;
+      function supportsWebP() {
+        if (webpSupported !== null) return webpSupported;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1;
+        webpSupported = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        return webpSupported;
+      }
+      
+      // Helper function to convert canvas to data URL with optimal format
+      async function canvasToDataURL(canvas, quality = 0.95) {
+        if (supportsWebP()) {
+          return canvas.toDataURL('image/webp', quality);
+        } else {
+          return canvas.toDataURL('image/png');
+        }
+      }
+      
+      // Helper function to convert canvas to blob with optimal format
+      async function canvasToBlob(canvas, quality = 0.95) {
+        return new Promise(resolve => {
+          if (supportsWebP()) {
+            canvas.toBlob(resolve, 'image/webp', quality);
+          } else {
+            canvas.toBlob(resolve, 'image/png');
+          }
+        });
+      }
 
       let capsMode = tryGet(CAPS_KEY) || 'none';
       applyCapsMode(capsMode,false);
@@ -2799,25 +2819,14 @@
           ctx.drawImage(frameImg, 0, 0, imgWidth, imgHeight);
           ctx.restore();
           
-          // Export as WebP at high quality (0.95) for better compression than PNG
-          // Fallback to PNG if WebP is not supported
-          let framedDataUrl;
-          if (canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0) {
-            framedDataUrl = canvas.toDataURL('image/webp', 0.95);
-          } else {
-            framedDataUrl = canvas.toDataURL('image/png');
-          }
+          // Create blob once for both data URL and object URL (efficient)
+          const blob = await canvasToBlob(canvas, 0.95);
           
-          // Save to draft for day editing screen
-          draftPhotoData = framedDataUrl;
-          
-          // Create object URL for preview to avoid re-encoding
-          const blob = await new Promise(resolve => {
-            if (framedDataUrl.startsWith('data:image/webp')) {
-              canvas.toBlob(resolve, 'image/webp', 0.95);
-            } else {
-              canvas.toBlob(resolve, 'image/png');
-            }
+          // Convert blob to data URL for storage
+          const reader = new FileReader();
+          draftPhotoData = await new Promise(resolve => {
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
           });
           
           // Revoke previous object URL if exists
@@ -2825,6 +2834,7 @@
             URL.revokeObjectURL(draftPhotoObjectURL);
           }
           
+          // Create object URL for preview (avoids re-encoding)
           draftPhotoObjectURL = URL.createObjectURL(blob);
           bigPreviewImg.src = draftPhotoObjectURL;
           bigPreviewImg.style.display = 'block';
