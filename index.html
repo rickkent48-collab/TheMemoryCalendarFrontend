@@ -3251,7 +3251,7 @@
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 if (attempt > 1) {
-                  // Short delay before retry (exponential backoff: 1000ms, 1500ms)
+                  // Short delay before retry (linear backoff: 1000ms, 1500ms)
                   const delay = 500 * attempt;
                   console.info(`[Upload Deferred Images] Retry attempt ${attempt}/3 after ${delay}ms delay`);
                   await new Promise(resolve => setTimeout(resolve, delay));
@@ -3290,6 +3290,8 @@
           }
           
           console.info('[Upload Deferred Images] All items uploaded successfully');
+          // Return structured result with individual upload responses
+          // Note: Caller currently doesn't use return value, only checks success via try/catch
           return { success: true, results: uploadResults };
         } catch (error) {
           console.error('[Upload Deferred Images] Error:', error);
