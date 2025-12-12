@@ -1366,7 +1366,7 @@
           });
           
           // Use helper function for optimal format export
-          return await canvasToDataURL(canvas, 0.95);
+          return canvasToDataURL(canvas, 0.95);
         }catch(e){ return ''; }
       }
 
@@ -1569,7 +1569,7 @@
           });
 
           // Use helper function for optimal format export
-          return await canvasToDataURL(canvas, 0.95);
+          return canvasToDataURL(canvas, 0.95);
         }catch(e){ return ''; }
       }
 
@@ -1600,7 +1600,7 @@
       }
       
       // Helper function to convert canvas to data URL with optimal format
-      async function canvasToDataURL(canvas, quality = 0.95) {
+      function canvasToDataURL(canvas, quality = 0.95) {
         if (supportsWebP()) {
           return canvas.toDataURL('image/webp', quality);
         } else {
