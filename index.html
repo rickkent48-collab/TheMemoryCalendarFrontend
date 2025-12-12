@@ -1592,13 +1592,17 @@
       const EXPORT_SCALE_MULTIPLIER = 3; // 3x resolution for high-quality exports
       const EXPORT_QUALITY = 0.95; // WebP/JPEG quality (0-1)
       
-      // Cache WebP support detection
+      // Cache WebP support detection (test canvas created once)
       let webpSupported = null;
+      const testCanvas = (() => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        return c;
+      })();
+      
       function supportsWebP() {
         if (webpSupported !== null) return webpSupported;
-        const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = 1;
-        webpSupported = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        webpSupported = testCanvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
         return webpSupported;
       }
       
