@@ -1380,46 +1380,56 @@
           }
           const heightCSS = usedHeightWithoutBottom + bottomAreaHeight;
           
-          // Use high-quality export scale
-          const exportScale = EXPORT_SCALE_MULTIPLIER;
-          const canvas=document.createElement('canvas');
-          canvas.width=Math.round(widthCSS*exportScale);
-          canvas.height=Math.round(heightCSS*exportScale);
-          const ctx=canvas.getContext('2d', { alpha: false });
-          ctx.scale(exportScale, exportScale);
-          ctx.fillStyle='#ffffff';
-          ctx.fillRect(0,0,widthCSS,heightCSS);
-          const imgX=border, imgY=border;
-          const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
-          if(src){
-            const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
-            const iw=im.naturalWidth||im.width;
-            const ih=im.naturalHeight||im.height;
-            const r=Math.max(imgW/iw, imgH/ih);
-            const dw=iw*r, dh=ih*r;
-            const dx=imgX - (dw - imgW)/2;
-            const dy=imgY - (dh - imgH)/2;
-            ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-            ctx.drawImage(im, dx, dy, dw, dh);
-          }else{
-            ctx.fillStyle='#f0f0f0';
-            ctx.fillRect(imgX,imgY,imgW,imgH);
-          }
-          ctx.fillStyle='#000000';
-          const family=getComputedStyle(document.body).fontFamily || 'Comfortaa, sans-serif';
-          ctx.font=`600 ${sumFontSize}px ${family}`;
-          ctx.textAlign='center';
-          ctx.textBaseline='middle';
-          const summaryAreaTop = imgY + imgH + border;
-          const summaryAreaHeight = bottomAreaHeight - border;
-          const startCenterY = summaryAreaTop + (summaryAreaHeight/2) - (linesBlockHeight/2) + (sumLineH/2);
-          lines.forEach((line, i)=>{
-            ctx.fillText(line, widthCSS/2, startCenterY + i*sumLineH);
-          });
+          // Helper function to render polaroid on canvas at given scale
+          const renderPolaroid = async (canvas, scale) => {
+            canvas.width=Math.round(widthCSS*scale);
+            canvas.height=Math.round(heightCSS*scale);
+            const ctx=canvas.getContext('2d', { alpha: false });
+            ctx.scale(scale, scale);
+            ctx.fillStyle='#ffffff';
+            ctx.fillRect(0,0,widthCSS,heightCSS);
+            const imgX=border, imgY=border;
+            const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
+            if(src){
+              const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
+              const iw=im.naturalWidth||im.width;
+              const ih=im.naturalHeight||im.height;
+              const r=Math.max(imgW/iw, imgH/ih);
+              const dw=iw*r, dh=ih*r;
+              const dx=imgX - (dw - imgW)/2;
+              const dy=imgY - (dh - imgH)/2;
+              ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+              ctx.drawImage(im, dx, dy, dw, dh);
+            }else{
+              ctx.fillStyle='#f0f0f0';
+              ctx.fillRect(imgX,imgY,imgW,imgH);
+            }
+            ctx.fillStyle='#000000';
+            const family=getComputedStyle(document.body).fontFamily || 'Comfortaa, sans-serif';
+            ctx.font=`600 ${sumFontSize}px ${family}`;
+            ctx.textAlign='center';
+            ctx.textBaseline='middle';
+            const summaryAreaTop = imgY + imgH + border;
+            const summaryAreaHeight = bottomAreaHeight - border;
+            const startCenterY = summaryAreaTop + (summaryAreaHeight/2) - (linesBlockHeight/2) + (sumLineH/2);
+            lines.forEach((line, i)=>{
+              ctx.fillText(line, widthCSS/2, startCenterY + i*sumLineH);
+            });
+          };
           
-          // Use helper function for optimal format export
-          return canvasToDataURL(canvas, EXPORT_QUALITY);
-        }catch(e){ return ''; }
+          // Create high-quality version for backend upload
+          const exportScale = EXPORT_SCALE_MULTIPLIER;
+          const highQualityCanvas=document.createElement('canvas');
+          await renderPolaroid(highQualityCanvas, exportScale);
+          const highQuality = canvasToDataURL(highQualityCanvas, EXPORT_QUALITY);
+          
+          // Create small thumbnail for cart display (1x scale, JPEG 0.85 quality)
+          const thumbnailCanvas=document.createElement('canvas');
+          await renderPolaroid(thumbnailCanvas, 1);
+          const thumbnail = thumbnailCanvas.toDataURL('image/jpeg', 0.85);
+          
+          return { highQuality, thumbnail };
+        }catch(e){ return { highQuality: '', thumbnail: '' }; }
       }
 
       function renderCart(){
@@ -1492,8 +1502,9 @@
         const img=storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
         const summary=storePolaroidSummary && storePolaroidSummary.textContent ? storePolaroidSummary.textContent : '';
         const title=storePolaroidTitle && storePolaroidTitle.textContent ? storePolaroidTitle.textContent : 'daily polaroid';
-        const snapshot = await buildStorePolaroidSnapshot();
-        cartItems.push({ price, img, snapshot, summary, title, hasSummary:true, soloPhoto:false, ts:Date.now() });
+        const { highQuality, thumbnail } = await buildStorePolaroidSnapshot();
+        // snapshot: thumbnail for cart display, snapshotDataUrl: high-quality for backend upload
+        cartItems.push({ price, img, snapshot: thumbnail, snapshotDataUrl: highQuality, summary, title, hasSummary:true, soloPhoto:false, ts:Date.now() });
         saveCartItems();
         toastEl.classList.add('centered');
         showToast('added to cart');
@@ -1505,7 +1516,7 @@
         const price=PRICES.poster[currencyCode]||PRICES.poster.eur;
         const snapshot = await buildStorePosterSnapshot();
         const storePosterTitle=document.getElementById('storePosterTitle');
-        cartItems.push({ price, img:snapshot, snapshot, summary:'', title:storePosterTitle.textContent||'monthly poster', hasSummary:false, soloPhoto:false, ts:Date.now() });
+        cartItems.push({ price, img:snapshot, snapshot, snapshotDataUrl:snapshot, summary:'', title:storePosterTitle.textContent||'monthly poster', hasSummary:false, soloPhoto:false, ts:Date.now() });
         saveCartItems();
         toastEl.classList.add('centered');
         showToast('added to cart');
@@ -3569,7 +3580,7 @@
             const isPolaroid = /polaroid/i.test(item.title || '');
             const itemData = {
               title: item.title || 'item',
-              snapshotDataUrl: item.snapshot || item.img || '',
+              snapshotDataUrl: item.snapshotDataUrl || item.snapshot || item.img || '',
               price: item.price || '',
               summary: item.summary || '',
               hasSummary: item.hasSummary || false,
