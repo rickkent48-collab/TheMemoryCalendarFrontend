@@ -1382,7 +1382,7 @@
           
           // Detect if user image is present
           const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
-          const hasUserImage = src && !src.includes('data:') && src.length > 0;
+          const hasUserImage = src.length > 0;
           
           // Helper function to render polaroid on canvas at given scale
           const renderPolaroid = async (canvas, scale) => {
