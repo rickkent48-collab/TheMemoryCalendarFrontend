@@ -1716,7 +1716,8 @@
         const dow=new Date(year,month-1,day).toLocaleDateString('en-GB',{weekday:'long'});
         const mn=new Date(year,month-1,day).toLocaleDateString('en-GB',{month:'long'});
         const suffix=ordinalSuffix(day);
-        let txt=`${dow} ${day}${suffix} ${mn} ${year}`;
+        // Use non-breaking spaces throughout to prevent wrapping of the date line
+        let txt=`${dow}\u00A0${day}${suffix}\u00A0${mn}\u00A0${year}`;
         if(capsMode==='none') txt=txt.toLowerCase();
         if(capsMode==='all') txt=txt.toUpperCase();
         return txt;
