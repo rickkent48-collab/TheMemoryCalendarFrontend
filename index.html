@@ -1380,6 +1380,10 @@
           }
           const heightCSS = usedHeightWithoutBottom + bottomAreaHeight;
           
+          // Detect if user image is present
+          const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
+          const hasUserImage = src.length > 0;
+          
           // Helper function to render polaroid on canvas at given scale
           const renderPolaroid = async (canvas, scale) => {
             canvas.width=Math.round(widthCSS*scale);
@@ -1389,7 +1393,6 @@
             ctx.fillStyle='#ffffff';
             ctx.fillRect(0,0,widthCSS,heightCSS);
             const imgX=border, imgY=border;
-            const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
             if(src){
               const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
               const iw=im.naturalWidth||im.width;
@@ -1423,12 +1426,20 @@
           await renderPolaroid(highQualityCanvas, exportScale);
           const highQuality = canvasToDataURL(highQualityCanvas, EXPORT_QUALITY);
           
-          // Create small thumbnail for cart display (1x scale, JPEG 0.85 quality)
-          const thumbnailCanvas=document.createElement('canvas');
-          await renderPolaroid(thumbnailCanvas, 1);
-          const thumbnail = thumbnailCanvas.toDataURL('image/jpeg', 0.85);
+          // For cart display:
+          // - If user image is present: use high-quality snapshot (no downscaling)
+          // - If no user image: render a modest-size placeholder
+          let cartSnapshot;
+          if(hasUserImage){
+            cartSnapshot = highQuality;
+          }else{
+            // Render placeholder at 1x scale with modest JPEG quality
+            const placeholderCanvas=document.createElement('canvas');
+            await renderPolaroid(placeholderCanvas, 1);
+            cartSnapshot = placeholderCanvas.toDataURL('image/jpeg', 0.85);
+          }
           
-          return { highQuality, thumbnail };
+          return { highQuality, thumbnail: cartSnapshot };
         }catch(e){ return { highQuality: '', thumbnail: '' }; }
       }
 
@@ -1503,7 +1514,7 @@
         const summary=storePolaroidSummary && storePolaroidSummary.textContent ? storePolaroidSummary.textContent : '';
         const title=storePolaroidTitle && storePolaroidTitle.textContent ? storePolaroidTitle.textContent : 'daily polaroid';
         const { highQuality, thumbnail } = await buildStorePolaroidSnapshot();
-        // snapshot: thumbnail for cart display, snapshotDataUrl: high-quality for backend upload
+        // snapshot: cart display (high-quality if image present, placeholder if not), snapshotDataUrl: high-quality for backend upload
         cartItems.push({ price, img, snapshot: thumbnail, snapshotDataUrl: highQuality, summary, title, hasSummary:true, soloPhoto:false, ts:Date.now() });
         saveCartItems();
         toastEl.classList.add('centered');
