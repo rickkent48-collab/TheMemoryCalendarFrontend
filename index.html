@@ -298,6 +298,42 @@
     .polaroid.solo-photo{ padding:var(--polaroid-border); }
     .polaroid.solo-photo .polaroid-summary{ display:none !important; }
 
+    /* Viewer-only polaroid styles for uniform height and centered text */
+    .viewer-polaroid{
+      display:flex;
+      flex-direction:column;
+      aspect-ratio:2/3;
+      padding:var(--polaroid-border);
+      padding-bottom:var(--polaroid-border);
+      /* Ensure viewer polaroids keep their rounded corners from base .polaroid class */
+      border-radius:var(--polaroid-radius) !important;
+    }
+    .viewer-polaroid .polaroid-img-wrap{
+      flex:0 0 auto;
+      width:100%;
+      aspect-ratio:1/1;
+      /* Ensure image keeps rounded corners from base .polaroid-img-wrap class */
+      border-radius:var(--inner-radius) !important;
+      overflow:hidden;
+    }
+    .viewer-polaroid .polaroid-summary{
+      flex:1;
+      display:flex !important;
+      align-items:center;
+      justify-content:center;
+      margin-top:0;
+      position:static;
+      transform:none;
+      left:auto;
+      top:auto;
+    }
+    .viewer-polaroid.solo-photo{
+      padding:var(--polaroid-border);
+    }
+    .viewer-polaroid.solo-photo .polaroid-summary{
+      display:none !important;
+    }
+
     .section-block,
     .note-section,
     .song-section,
@@ -482,9 +518,6 @@
       transform:translateY(-50%);
     }
 
-    #storePolaroidCard{ border-radius:0 !important; }
-    #storePolaroidCard .polaroid-img-wrap{ border-radius:0 !important; }
-
     #storePosterCard{
       width:96%; max-width:var(--content-max);
       margin:0 auto;
@@ -565,37 +598,6 @@
       width:18px; height:18px;
       stroke:currentColor; fill:none; stroke-width:1.8;
       stroke-linecap:round; stroke-linejoin:round;
-    }
-
-    #storePolaroidFS #storePolaroidCard{
-      --store-polaroid-border:12px;
-      padding:var(--store-polaroid-border);
-      display:flex;
-      flex-direction:column;
-      aspect-ratio:2/3;
-      box-sizing:border-box;
-      background:#ffffff !important;
-      position:relative;
-    }
-    #storePolaroidFS #storePolaroidImgWrap{
-      flex:0 0 auto;
-      width:100%;
-      aspect-ratio:1/1;
-      border-radius:0;
-      background:#f8f8f8;
-      margin:0;
-    }
-    #storePolaroidFS #storePolaroidSummary{
-      position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      margin:0;
-      padding:0 6px;
-      text-align:center;
-      line-height:1.4;
-      font-size:13px;
-      font-weight:600;
-      white-space:pre-line;
     }
 
     .product-description{
@@ -915,7 +917,7 @@
   <div class="fs-screen" id="storePolaroidFS" role="dialog" aria-modal="true" aria-labelledby="storePolaroidTitle" style="display:none;">
     <header id="storePolaroidTitle">daily polaroid</header>
     <div class="content" id="storePolaroidContent">
-      <div class="polaroid" id="storePolaroidCard">
+      <div class="polaroid viewer-polaroid" id="storePolaroidCard">
         <div class="polaroid-img-wrap" id="storePolaroidImgWrap">
           <img id="storePolaroidImg" alt="day polaroid">
           <div class="polaroid-placeholder" id="storePolaroidPlaceholder" style="display:none;"></div>
