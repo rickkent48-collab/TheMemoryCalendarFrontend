@@ -1059,6 +1059,7 @@
         <div id="deliveryFeeLabel" style="font-weight:800; font-size:14px;">delivery fee</div>
         <div class="cart-price" id="deliveryFeePrice">€4.99</div>
       </div>
+      <div id="deliveryEstimateContainer" style="width:96%; max-width:var(--content-max); margin:0 auto 12px; font-size:13px; font-weight:600; text-align:center; opacity:0.8;"></div>
       <button class="action-btn" id="storeCartTotalBtn">total €0.00</button>
       <button class="action-btn" id="storeCartBackBtn">back</button>
     </div>
@@ -1192,7 +1193,7 @@
 
   <script>
     (function(){
-      const MIN_YEAR=2020, MAX_YEAR=2026;
+      const MIN_YEAR=2020, MAX_YEAR=2030;
 
       const topbarEl=document.getElementById('topbar');
       const yearTitleEl=document.getElementById('yearTitle');
@@ -1347,6 +1348,7 @@
       const storeCartTotalBtn=document.getElementById('storeCartTotalBtn');
       const deliveryFeeLabel=document.getElementById('deliveryFeeLabel');
       const deliveryFeePrice=document.getElementById('deliveryFeePrice');
+      const deliveryEstimateContainer=document.getElementById('deliveryEstimateContainer');
 
       const checkoutFSBackdrop=document.getElementById('checkoutFSBackdrop');
       const checkoutFS=document.getElementById('checkoutFS');
@@ -1369,6 +1371,7 @@
       const CART_KEY='cart-items';
       let cartItems=loadCartItems();
 
+      const YEAR_KEY='app-year-key';
       const CAPS_KEY='caps-mode';
       const FONT_KEY='app-font-key';
       const THEME_KEY='app-theme-key';
@@ -1463,6 +1466,9 @@
         else deliveryFeeLabel.textContent='delivery';
         if(deliveryFeePrice){
           deliveryFeePrice.textContent=PRICES.delivery[currencyCode]||PRICES.delivery.eur;
+        }
+        if(deliveryEstimateContainer){
+          deliveryEstimateContainer.textContent=getEstimatedDeliveryRange();
         }
       }
 
@@ -1757,7 +1763,9 @@
         }catch(e){ return ''; }
       }
 
-      let YEAR=clamp(new Date().getFullYear(),MIN_YEAR,MAX_YEAR);
+      // Initialize YEAR from localStorage if present, otherwise use device date
+      let savedYear = tryGet(YEAR_KEY);
+      let YEAR = savedYear ? clamp(parseInt(savedYear, 10), MIN_YEAR, MAX_YEAR) : clamp(new Date().getFullYear(), MIN_YEAR, MAX_YEAR);
       yearTitleEl.textContent=String(YEAR);
 
       let isEditMode=true;
@@ -1847,6 +1855,32 @@
         if(capsMode==='none') txt=txt.toLowerCase();
         if(capsMode==='all') txt=txt.toUpperCase();
         return txt;
+      }
+      function getEstimatedDeliveryRange(){
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() + 5);
+        const endDate = new Date(today);
+        endDate.setDate(today.getDate() + 10);
+        
+        const startDay = startDate.getDate();
+        const startMonth = startDate.toLocaleDateString('en-GB', {month: 'long'});
+        const endDay = endDate.getDate();
+        const endMonth = endDate.toLocaleDateString('en-GB', {month: 'long'});
+        
+        const startSuffix = ordinalSuffix(startDay);
+        const endSuffix = ordinalSuffix(endDay);
+        
+        let text = `estimated delivery: ${startDay}${startSuffix} ${startMonth} - ${endDay}${endSuffix} ${endMonth}`;
+        
+        if(capsMode === 'none') {
+          return text.toLowerCase();
+        } else if(capsMode === 'all') {
+          return text.toUpperCase();
+        } else {
+          // Standard caps: capitalize "Estimated" and month names
+          return `Estimated delivery: ${startDay}${startSuffix} ${startMonth} - ${endDay}${endSuffix} ${endMonth}`;
+        }
       }
       function getDeleteMessage(){
         if(capsMode==='none') return DELETE_MSG_BASE.toLowerCase();
@@ -2617,6 +2651,7 @@
         if(Number.isFinite(y) && y!==YEAR){
           YEAR=y;
           yearTitleEl.textContent=String(YEAR);
+          localStorage.setItem(YEAR_KEY, String(YEAR));
           preloadYearAssets(YEAR);
           buildYear(YEAR);
           applyCapsMode(capsMode,true);
