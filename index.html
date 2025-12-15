@@ -38,14 +38,16 @@
       --button-text:var(--text);
     }
     :root[data-theme="pastel"]{ --text:#3a1a5e; --bg1:#fff1b8; --bg2:#ffd3b6; --bg3:#ffb3c1; --surface:#ffffff; --button-bg:#ffffff; --button-text:#3a1a5e; --outline-color:#7e57c2; }
-    :root[data-theme="dark"]{ --text:#f4f4f7; --bg1:#121212; --bg2:#1e1e2a; --bg3:#252535; --surface:#2c2c3a; --button-bg:#2c2c3a; --button-text:#f4f4f7; --outline-color:#b388ff; }
-    :root[data-theme="light"]{ --text:#222222; --bg1:#fdfdfd; --bg2:#ececec; --bg3:#e0e0e0; --surface:#ffffff; --button-bg:#ffffff; --button-text:#222222; --outline-color:#7e57c2; }
+    :root[data-theme="dark"]{ --text:#f4f4f7; --bg1:#000000; --bg2:#000000; --bg3:#000000; --surface:#2c2c3a; --button-bg:#2c2c3a; --button-text:#f4f4f7; --outline-color:#b388ff; }
+    :root[data-theme="light"]{ --text:#222222; --bg1:#FFFFFF; --bg2:#FFFFFF; --bg3:#FFFFFF; --surface:#ffffff; --button-bg:#ffffff; --button-text:#222222; --outline-color:#7e57c2; }
     :root[data-theme="galaxy"]{ --text:#e6e9ff; --bg1:#2b1055; --bg2:#4b2d83; --bg3:#1b3987; --surface:#3a2570; --button-bg:#3a2570; --button-text:#e6e9ff; --outline-color:#8f7fff; }
     :root[data-theme="sunset"]{ --text:#2d132c; --bg1:#ffaf87; --bg2:#ff8e6e; --bg3:#ff6f91; --surface:#fff2e6; --button-bg:#fff2e6; --button-text:#2d132c; --outline-color:#ff6f91; }
     :root[data-theme="forest"]{ --text:#1f3324; --bg1:#c9f2d6; --bg2:#8fd7a3; --bg3:#4e9f6b; --surface:#ffffff; --button-bg:#ffffff; --button-text:#1f3324; --outline-color:#31734b; }
     :root[data-theme="underwater"]{ --text:#e7fbff; --bg1:#023e8a; --bg2:#0077b6; --bg3:#0096c7; --surface:#00b4d8; --button-bg:#00b4d8; --button-text:#e7fbff; --outline-color:#90e0ef; }
     :root[data-theme="underwater"] .polaroid-placeholder{ color:#062a56; opacity:.9; }
     :root[data-theme="rainbow"]{ --text:#2e2e2e; --bg1:#ff9a9e; --bg2:#fad0c4; --bg3:#ffd1ff; --surface:#ffffff; --button-bg:#ffffff; --button-text:#2e2e2e; --outline-color:#ff6ec7; }
+    :root[data-theme="tiger"]{ --text:#FFFFFF; --bg1:#000000; --bg2:#FF8C00; --bg3:#000000; --surface:#2c2c2c; --button-bg:#2c2c2c; --button-text:#FFFFFF; --outline-color:#FF8C00; }
+    :root[data-theme="earth"]{ --text:#FFFFFF; --bg1:#2E8B57; --bg2:#3fa87a; --bg3:#1E90FF; --surface:#2d5f4a; --button-bg:#2d5f4a; --button-text:#FFFFFF; --outline-color:#4FC3F7; }
     :root[data-theme="sunset"] .agree-box{ border-color:#ff9fb3; }
 
     @supports (height:1svh){ :root{ --sheet-h:75svh; } }
@@ -742,7 +744,7 @@
       try{
         const THEME_KEY='app-theme-key';
         const FONT_KEY='app-font-key';
-        const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow'];
+        const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','tiger','earth'];
         const FONT_MAP={
           roboto: '"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif',
           poppins: '"Poppins",system-ui,-apple-system,"Segoe UI",sans-serif',
@@ -766,8 +768,8 @@
           default:2.2
         };
         
-        let themeKey=localStorage.getItem(THEME_KEY) || 'sunset';
-        if(!THEMES.includes(themeKey)) themeKey='sunset';
+        let themeKey=localStorage.getItem(THEME_KEY) || 'galaxy';
+        if(!THEMES.includes(themeKey)) themeKey='galaxy';
         document.documentElement.setAttribute('data-theme', themeKey);
         
         let fontKey=localStorage.getItem(FONT_KEY) || 'roboto';
@@ -873,14 +875,16 @@
   <div class="fs-screen" id="themesFS" role="dialog" aria-modal="true" aria-labelledby="themesFSTitle">
     <header id="themesFSTitle">themes</header>
     <div class="content" id="themesContent">
+      <button class="choice-btn theme-choice" data-theme="galaxy">galaxy</button>
+      <button class="choice-btn theme-choice" data-theme="tiger">tiger</button>
+      <button class="choice-btn theme-choice" data-theme="earth">earth</button>
       <button class="choice-btn theme-choice" data-theme="sunset">sunset</button>
       <button class="choice-btn theme-choice" data-theme="pastel">pastel</button>
-      <button class="choice-btn theme-choice" data-theme="dark">dark</button>
-      <button class="choice-btn theme-choice" data-theme="light">light</button>
-      <button class="choice-btn theme-choice" data-theme="galaxy">galaxy</button>
       <button class="choice-btn theme-choice" data-theme="forest">forest</button>
       <button class="choice-btn theme-choice" data-theme="underwater">underwater</button>
       <button class="choice-btn theme-choice" data-theme="rainbow">rainbow</button>
+      <button class="choice-btn theme-choice" data-theme="light">light</button>
+      <button class="choice-btn theme-choice" data-theme="dark">dark</button>
       <button class="action-btn" id="themesBackBtn">back</button>
     </div>
   </div>
