@@ -337,6 +337,10 @@
       padding:14px 14px 18px;
       display:flex; flex-direction:column; gap:12px;
     }
+    /* Notes tab: make bottom spacing equal to gap between header and textarea */
+    #notesSectionNotes{
+      padding-bottom:12px;
+    }
     .section-header{ font-size:14px; font-weight:800; letter-spacing:1px; text-align:center; margin:0; }
 
     .notes{
@@ -420,7 +424,7 @@
     .primary-btn{ background:var(--outline-color) !important; color:#ffffff !important; box-shadow:0 4px 12px rgba(0,0,0,0.18) !important; }
 
     .edit-tabs{
-      width:96%; max-width:var(--content-max); margin:16px auto 0;
+      width:96%; max-width:var(--content-max); margin:20px auto 0;
       display:flex; gap:8px; justify-content:center;
     }
     .edit-tab-btn{
@@ -3477,6 +3481,8 @@
         const song=(tryGet(`song-${base}`)||'').trim();
         const movie=(tryGet(`movie-${base}`)||'').trim();
         const show=(tryGet(`show-${base}`)||'').trim();
+        const notesText=(tryGet(`notesText-${base}`)||'').trim();
+        const notesIcon=(tryGet(`notesIcon-${base}`)||'').trim();
 
         if(photo){
           storePolaroidImg.src=photo;
@@ -3493,16 +3499,27 @@
         const blocks=[];
         const dateLine = formatFullDate(year,month,day);
         if(dateLine) blocks.push(dateLine);
-        if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
-        const meta=[];
-        if(word) meta.push(transformForDisplay(word,'word'));
-        if(icon) meta.push(icon);
-        if(meta.length) blocks.push(meta.join('\n'));
-        const media=[];
-        if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
-        if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
-        if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
-        if(media.length) blocks.push(media.join('\n'));
+        
+        // Detect mode: notes-mode if notesText or notesIcon exists
+        const isNotesMode = !!(notesText || notesIcon);
+        
+        if(isNotesMode){
+          // Notes-mode rendering: show notes text (preserve line breaks), NO emoji in preview
+          if(notesText) blocks.push(notesText);
+        }else{
+          // Standard-mode rendering: show all six categories with emoji
+          if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          const meta=[];
+          if(word) meta.push(transformForDisplay(word,'word'));
+          if(icon) meta.push(icon);
+          if(meta.length) blocks.push(meta.join('\n'));
+          const media=[];
+          if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
+          if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
+          if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
+          if(media.length) blocks.push(media.join('\n'));
+        }
+        
         storePolaroidSummary.textContent=blocks.join('\n');
         document.getElementById('storePolaroidCard').classList.add('has-summary');
         document.getElementById('storePolaroidCard').classList.remove('solo-photo');
