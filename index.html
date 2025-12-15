@@ -452,8 +452,6 @@
       font-family:inherit; font-size:var(--note-fs);
       line-height:34px;
       text-align:center;
-      min-height:204px;
-      max-height:204px;
       height:204px;
       overflow:hidden;
       padding:0 8px;
@@ -2495,7 +2493,7 @@
         // Save based on current tab
         if(currentEditTab==='notes'){
           // Notes tab: save notes lines and icon, clear others
-          const notesLines=(editingData.notesTabLines||[]).filter(l=>l.trim().length>0);
+          const notesLines=(editingData.notesTabLines||[]).filter(line=>line.trim().length>0);
           trySet(`notesTabLines-${base}`,JSON.stringify(notesLines));
           trySet(`note-${base}`,'');
           trySet(`icon-${base}`,editingData.icon||'');
@@ -2609,7 +2607,7 @@
         
         // If notes tab lines exist, use them instead of standard content
         if(notesLines.length>0){
-          const filteredLines=notesLines.filter(l=>l.trim().length>0);
+          const filteredLines=notesLines.filter(line=>line.trim().length>0);
           if(filteredLines.length>0) blocks.push(filteredLines.join('\n'));
         }else{
           if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
