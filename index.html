@@ -46,7 +46,7 @@
     :root[data-theme="underwater"]{ --text:#e7fbff; --bg1:#023e8a; --bg2:#0077b6; --bg3:#0096c7; --surface:#00b4d8; --button-bg:#00b4d8; --button-text:#e7fbff; --outline-color:#90e0ef; }
     :root[data-theme="underwater"] .polaroid-placeholder{ color:#062a56; opacity:.9; }
     :root[data-theme="rainbow"]{ --text:#2e2e2e; --bg1:#ff9a9e; --bg2:#fad0c4; --bg3:#ffd1ff; --surface:#ffffff; --button-bg:#ffffff; --button-text:#2e2e2e; --outline-color:#ff6ec7; }
-    :root[data-theme="tiger"]{ --text:#FFFFFF; --bg1:#000000; --bg2:#FF8C00; --bg3:#000000; --surface:#2c2c2c; --button-bg:#2c2c2c; --button-text:#FFFFFF; --outline-color:#FF8C00; }
+    :root[data-theme="fire"]{ --text:#1A1A1A; --bg1:#F36B6B; --bg2:#F7A860; --bg3:#F9E27D; --surface:#ffffff; --button-bg:#ffffff; --button-text:#1A1A1A; --outline-color:#E85D5D; }
     :root[data-theme="earth"]{ --text:#FFFFFF; --bg1:#2E8B57; --bg2:#3fa87a; --bg3:#1E90FF; --surface:#2d5f4a; --button-bg:#2d5f4a; --button-text:#FFFFFF; --outline-color:#4FC3F7; }
     :root[data-theme="sunset"] .agree-box{ border-color:#ff9fb3; }
 
@@ -744,7 +744,7 @@
       try{
         const THEME_KEY='app-theme-key';
         const FONT_KEY='app-font-key';
-        const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','tiger','earth'];
+        const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','fire','earth'];
         const FONT_MAP={
           roboto: '"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif',
           poppins: '"Poppins",system-ui,-apple-system,"Segoe UI",sans-serif',
@@ -876,7 +876,7 @@
     <header id="themesFSTitle">themes</header>
     <div class="content" id="themesContent">
       <button class="choice-btn theme-choice" data-theme="galaxy">galaxy</button>
-      <button class="choice-btn theme-choice" data-theme="tiger">tiger</button>
+      <button class="choice-btn theme-choice" data-theme="fire">fire</button>
       <button class="choice-btn theme-choice" data-theme="earth">earth</button>
       <button class="choice-btn theme-choice" data-theme="sunset">sunset</button>
       <button class="choice-btn theme-choice" data-theme="pastel">pastel</button>
@@ -1719,7 +1719,7 @@
       let fontKey = tryGet(FONT_KEY) || 'roboto';
       applyFont(fontKey,false);
 
-      const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','tiger','earth'];
+      const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','fire','earth'];
       let themeKey=tryGet(THEME_KEY) || 'galaxy';
       applyTheme(themeKey,false);
 
