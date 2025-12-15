@@ -2393,7 +2393,6 @@
         if(!isEditMode) return;
         notesCustomEmojiInput.focus();
         document.getElementById('notesCustomEmojiChip').classList.add('selected');
-        notesCustomEmojiInput.focus();
       });
       notesCustomEmojiInput.addEventListener('input',()=>{
         if(!isEditMode) return;
@@ -2497,7 +2496,7 @@
         if(currentEditTab==='notes'){
           // Notes tab: save notes lines and icon, clear others
           const notesLines=(editingData.notesTabLines||[]).filter(l=>l.trim().length>0);
-          trySet(`notesTabLines-${base}`,JSON.stringify(editingData.notesTabLines||[]));
+          trySet(`notesTabLines-${base}`,JSON.stringify(notesLines));
           trySet(`note-${base}`,'');
           trySet(`icon-${base}`,editingData.icon||'');
           trySet(`word-${base}`,'');
