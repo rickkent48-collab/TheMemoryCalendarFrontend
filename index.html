@@ -301,7 +301,8 @@
     /* Viewer-only polaroid styling for saved day view modal */
     #dayModal .viewer-polaroid{
       /* Fixed height to match a fully filled polaroid */
-      /* Calculation: width * 0.96 (polaroid width) + 6px (top padding) + 12px (bottom padding) + 100px (summary area) */
+      /* Calculation: image width + 118px */
+      /* 118px = 6px (top padding) + 12px (bottom padding) + 100px (summary area height) */
       height:calc(min(96vw, var(--content-max)) + 118px);
       display:flex;
       flex-direction:column;
