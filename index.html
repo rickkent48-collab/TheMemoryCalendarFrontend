@@ -1858,10 +1858,10 @@
       }
       function getEstimatedDeliveryRange(){
         const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() + 5);
-        const endDate = new Date(today);
-        endDate.setDate(today.getDate() + 10);
+        const startDate = new Date(today.getTime());
+        startDate.setDate(startDate.getDate() + 5);
+        const endDate = new Date(today.getTime());
+        endDate.setDate(endDate.getDate() + 10);
         
         const startDay = startDate.getDate();
         const startMonth = startDate.toLocaleDateString('en-GB', {month: 'long'});
