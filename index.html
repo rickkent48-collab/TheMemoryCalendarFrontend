@@ -421,6 +421,43 @@
 
     .hidden{ display:none !important; }
 
+    .edit-tabs-container{
+      width:96%; max-width:var(--content-max); margin:20px auto 0;
+      display:flex; gap:8px; justify-content:center;
+    }
+    .edit-tab-btn{
+      flex:1; max-width:200px;
+      font-family:inherit; font-weight:800; font-size:15px;
+      border:none; border-radius:14px; padding:12px 18px;
+      cursor:pointer; letter-spacing:1px;
+      background:var(--surface); color:var(--text); box-shadow:var(--shadow);
+      transition:background .18s, transform .12s;
+    }
+    .edit-tab-btn:active{ transform:scale(.97); }
+    .edit-tab-btn.selected{
+      outline:3px solid var(--outline-color);
+      box-shadow:0 0 0 3px var(--outline-color)33, var(--shadow);
+    }
+
+    .notes-tab-section{
+      width:100%; max-width:var(--content-max); margin:0 auto;
+      background:var(--surface);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:14px 14px 18px;
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .notes-tab-textarea{
+      width:100%; border:none; outline:none; background:transparent; resize:none;
+      font-family:inherit; font-size:var(--note-fs);
+      line-height:34px;
+      text-align:center;
+      height:204px;
+      overflow:hidden;
+      padding:0 8px;
+      color:var(--text);
+    }
+
     .emoji-chip:focus-visible,
     .word-chip:focus-visible,
     .custom-word-chip:focus-within,
@@ -1059,7 +1096,7 @@
         <div id="deliveryFeeLabel" style="font-weight:800; font-size:14px;">delivery fee</div>
         <div class="cart-price" id="deliveryFeePrice">€4.99</div>
       </div>
-      <div id="deliveryEstimateContainer" style="width:96%; max-width:var(--content-max); margin:0 auto 12px; font-size:13px; font-weight:600; text-align:center; opacity:0.8;"></div>
+      <div id="deliveryEstimateContainer" style="width:96%; max-width:var(--content-max); margin:6px auto; font-size:13px; font-weight:600; text-align:center; opacity:0.8;"></div>
       <button class="action-btn" id="storeCartTotalBtn">total €0.00</button>
       <button class="action-btn" id="storeCartBackBtn">back</button>
     </div>
@@ -1115,6 +1152,12 @@
           <div class="polaroid-summary" id="polaroidSummary"></div>
         </div>
 
+        <div class="edit-tabs-container">
+          <button class="edit-tab-btn selected" id="standardTab">standard</button>
+          <button class="edit-tab-btn" id="notesTab">notes</button>
+        </div>
+
+        <div id="standardTabContent">
         <section class="note-section" id="noteSection">
           <h3 class="section-header">add your note of the day</h3>
           <textarea id="photoNotes" class="notes mid-start" rows="1" maxlength="30" aria-label="add your note of the day"></textarea>
@@ -1168,6 +1211,25 @@
           <h3 class="section-header">add your show of the day</h3>
           <input id="showInput" class="song-input" type="text" maxlength="60" aria-label="show of the day">
         </section>
+        </div>
+
+        <div id="notesTabContent" class="hidden">
+        <section class="notes-tab-section">
+          <h3 class="section-header">add your note of the day</h3>
+          <textarea id="notesTabTextarea" class="notes-tab-textarea" maxlength="180" aria-label="add your note of the day"></textarea>
+        </section>
+
+        <section class="section-block" id="notesIconSection">
+          <h3 class="section-header">add your icon of the day</h3>
+          <div class="emoji-grid" id="notesEmojiGrid">
+            <div class="emoji-chip" data-emoji="🌿">🌿</div><div class="emoji-chip" data-emoji="🌙">🌙</div><div class="emoji-chip" data-emoji="✨️">✨️</div><div class="emoji-chip" data-emoji="☀️">☀️</div><div class="emoji-chip" data-emoji="🌧">🌧</div>
+            <div class="emoji-chip" data-emoji="😄">😄</div><div class="emoji-chip" data-emoji="😊">😊</div><div class="emoji-chip" data-emoji="😂">😂</div><div class="emoji-chip" data-emoji="🥳">🥳</div><div class="emoji-chip" data-emoji="🥰">🥰</div>
+            <div class="emoji-chip" data-emoji="😜">😜</div><div class="emoji-chip" data-emoji="😴">😴</div><div class="custom-emoji-chip" id="notesCustomEmojiChip"><input id="notesCustomEmojiInput" type="text" maxlength="8" aria-label="custom icon" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div><div class="emoji-chip" data-emoji="😐">😐</div><div class="emoji-chip" data-emoji="😵‍💫">😵‍💫</div>
+            <div class="emoji-chip" data-emoji="😠">😠</div><div class="emoji-chip" data-emoji="🤕">🤕</div><div class="emoji-chip" data-emoji="🤒">🤒</div><div class="emoji-chip" data-emoji="😣">😣</div><div class="emoji-chip" data-emoji="😭">😭</div>
+            <div class="emoji-chip" data-emoji="🎉">🎉</div><div class="emoji-chip" data-emoji="🎨">🎨</div><div class="emoji-chip" data-emoji="☕️">☕️</div><div class="emoji-chip" data-emoji="❤️">❤️</div><div class="emoji-chip" data-emoji="💔">💔</div>
+          </div>
+        </section>
+        </div>
 
         <button class="action-btn" id="saveDayBtn">save</button>
         <button class="action-btn hidden" id="editDayBtn">edit</button>
@@ -1230,6 +1292,16 @@
       const songInput=document.getElementById('songInput');
       const movieInput=document.getElementById('movieInput');
       const showInput=document.getElementById('showInput');
+
+      const standardTab=document.getElementById('standardTab');
+      const notesTab=document.getElementById('notesTab');
+      const standardTabContent=document.getElementById('standardTabContent');
+      const notesTabContent=document.getElementById('notesTabContent');
+      const notesTabTextarea=document.getElementById('notesTabTextarea');
+      const notesEmojiGrid=document.getElementById('notesEmojiGrid');
+      const notesCustomEmojiInput=document.getElementById('notesCustomEmojiInput');
+
+      let currentEditTab='standard';
 
       const saveDayBtn=document.getElementById('saveDayBtn');
       const editDayBtn=document.getElementById('editDayBtn');
@@ -1774,8 +1846,8 @@
       let draftPhotoObjectURL=null; // Object URL for preview (revoked after save)
 
       let selectedDateKey=null;
-      let originalData={ note:'', icon:'', word:'', song:'', movie:'', show:'' };
-      let editingData={ note:'', icon:'', word:'', song:'', movie:'', show:'' };
+      let originalData={ note:'', icon:'', word:'', song:'', movie:'', show:'', notesTabLines:[], editMode:'standard' };
+      let editingData={ note:'', icon:'', word:'', song:'', movie:'', show:'', notesTabLines:[], editMode:'standard' };
 
       let photoCache={};
       let emojiCache={};
@@ -2149,18 +2221,23 @@
       function captureOriginalData(){
         if(!selectedDateKey) return;
         const base=baseDateKey(selectedDateKey);
+        const savedNotesLines=tryGet(`notesTabLines-${base}`);
+        const savedEditMode=tryGet(`editMode-${base}`);
         originalData={
           note:(tryGet(`note-${base}`)||''),
           icon:(tryGet(`icon-${base}`)||''),
           word:(tryGet(`word-${base}`)||''),
           song:(tryGet(`song-${base}`)||''),
           movie:(tryGet(`movie-${base}`)||''),
-          show:(tryGet(`show-${base}`)||'')
+          show:(tryGet(`show-${base}`)||''),
+          notesTabLines:savedNotesLines?JSON.parse(savedNotesLines):[],
+          editMode:savedEditMode||'standard'
         };
         editingData={...originalData};
       }
 
       function loadFieldsIntoEditUI(){
+        // Load standard tab fields
         photoNotes.value=transformForDisplay(editingData.note,'sentence').replace(/\n/g,' ');
         emojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
         if(editingData.icon){
@@ -2182,6 +2259,21 @@
         songInput.value=transformForDisplay(editingData.song,'text');
         movieInput.value=transformForDisplay(editingData.movie,'text');
         showInput.value=transformForDisplay(editingData.show,'text');
+
+        // Load notes tab fields
+        notesTabTextarea.value=(editingData.notesTabLines||[]).join('\n');
+        notesEmojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
+        if(editingData.icon){
+          const chip=notesEmojiGrid.querySelector(`.emoji-chip[data-emoji="${editingData.icon}"]`);
+          if(chip){ chip.classList.add('selected'); }
+          else if(notesCustomEmojiInput){
+            notesCustomEmojiInput.value=editingData.icon;
+            document.getElementById('notesCustomEmojiChip').classList.add('selected');
+          }
+        }
+
+        // Switch to the saved tab mode
+        switchToTab(editingData.editMode||'standard');
       }
 
       function hasSavedPhoto(){ return !!getSavedPhoto(selectedDateKey); }
@@ -2279,6 +2371,48 @@
         }
       });
 
+      // Notes tab emoji handlers
+      notesEmojiGrid.addEventListener('click',(e)=>{
+        if(!isEditMode) return;
+        const chip=e.target.closest('.emoji-chip'); if(!chip) return;
+        if(chip.classList.contains('selected')){
+          chip.classList.remove('selected');
+          editingData.icon='';
+        }else{
+          notesEmojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
+          document.getElementById('notesCustomEmojiChip').classList.remove('selected');
+          chip.classList.add('selected');
+          editingData.icon=chip.dataset.emoji;
+          notesCustomEmojiInput.value='';
+        }
+      });
+
+      document.getElementById('notesCustomEmojiChip').addEventListener('click',()=>{
+        if(!isEditMode) return;
+        notesCustomEmojiInput.focus();
+        document.getElementById('notesCustomEmojiChip').classList.add('selected');
+      });
+      notesCustomEmojiInput.addEventListener('input',()=>{
+        if(!isEditMode) return;
+        const seg = (typeof Intl!=='undefined' && Intl.Segmenter)? new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
+        let raw=(notesCustomEmojiInput.value||'').trim();
+        let g=raw;
+        if(seg){
+          for(const part of seg.segment(raw)){ g=part.segment; break; }
+        }else{
+          g=Array.from(raw)[0]||'';
+        }
+        if(notesCustomEmojiInput.value!==g) notesCustomEmojiInput.value=g;
+        if(g){
+          notesEmojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
+          document.getElementById('notesCustomEmojiChip').classList.add('selected');
+          editingData.icon=g;
+        }else{
+          document.getElementById('notesCustomEmojiChip').classList.remove('selected');
+          editingData.icon='';
+        }
+      });
+
       wordGrid.addEventListener('click',(e)=>{
         if(!isEditMode) return;
         const chip=e.target.closest('.word-chip'); if(!chip) return;
@@ -2334,6 +2468,8 @@
         if(!isEditMode || !selectedDateKey) return;
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
+        
+        // Save photo if exists
         if(draftPhotoData){
           const compressed=await compressDataUrl(draftPhotoData);
           if(trySet(selectedDateKey,compressed)){
@@ -2353,12 +2489,30 @@
             draftPhotoObjectURL=null;
           }
         }
-        trySet(`note-${base}`,editingData.note||'');
-        trySet(`icon-${base}`,editingData.icon||'');
-        trySet(`word-${base}`,editingData.word||'');
-        trySet(`song-${base}`,editingData.song||'');
-        trySet(`movie-${base}`,editingData.movie||'');
-        trySet(`show-${base}`,editingData.show||'');
+        
+        // Save based on current tab
+        if(currentEditTab==='notes'){
+          // Notes tab: save notes lines and icon, clear others
+          const notesLines=(editingData.notesTabLines||[]).filter(line=>line.trim().length>0);
+          trySet(`notesTabLines-${base}`,JSON.stringify(notesLines));
+          trySet(`note-${base}`,'');
+          trySet(`icon-${base}`,editingData.icon||'');
+          trySet(`word-${base}`,'');
+          trySet(`song-${base}`,'');
+          trySet(`movie-${base}`,'');
+          trySet(`show-${base}`,'');
+          trySet(`editMode-${base}`,'notes');
+        }else{
+          // Standard tab: save all fields
+          trySet(`note-${base}`,editingData.note||'');
+          trySet(`icon-${base}`,editingData.icon||'');
+          trySet(`word-${base}`,editingData.word||'');
+          trySet(`song-${base}`,editingData.song||'');
+          trySet(`movie-${base}`,editingData.movie||'');
+          trySet(`show-${base}`,editingData.show||'');
+          trySet(`notesTabLines-${base}`,'');
+          trySet(`editMode-${base}`,'standard');
+        }
 
         captureOriginalData();
         refreshSummaryFromStorage();
@@ -2376,6 +2530,54 @@
         loadFieldsIntoEditUI();
         resetScreenScroll(dayModal);
       });
+
+      // Tab switching logic
+      function switchToTab(tabName){
+        currentEditTab=tabName;
+        if(tabName==='standard'){
+          standardTab.classList.add('selected');
+          notesTab.classList.remove('selected');
+          standardTabContent.classList.remove('hidden');
+          notesTabContent.classList.add('hidden');
+        }else{
+          standardTab.classList.remove('selected');
+          notesTab.classList.add('selected');
+          standardTabContent.classList.add('hidden');
+          notesTabContent.classList.remove('hidden');
+        }
+      }
+
+      standardTab.addEventListener('click',()=>switchToTab('standard'));
+      notesTab.addEventListener('click',()=>switchToTab('notes'));
+
+      // Notes tab textarea character limit and auto-wrap logic
+      function handleNotesTabInput(){
+        let text=notesTabTextarea.value;
+        const lines=[];
+        let currentLine='';
+        
+        for(let i=0;i<text.length;i++){
+          const char=text[i];
+          if(char==='\n'){
+            lines.push(currentLine);
+            currentLine='';
+            if(lines.length>=6)break;
+          }else{
+            if(currentLine.length<30){
+              currentLine+=char;
+            }else{
+              lines.push(currentLine);
+              currentLine=char;
+              if(lines.length>=6)break;
+            }
+          }
+        }
+        if(currentLine&&lines.length<6)lines.push(currentLine);
+        
+        notesTabTextarea.value=lines.join('\n');
+        editingData.notesTabLines=lines;
+      }
+      notesTabTextarea.addEventListener('input',handleNotesTabInput);
 
       backBtn.addEventListener('click',()=>{
         if(isEditMode){
@@ -2396,19 +2598,30 @@
         const song=(tryGet(`song-${base}`)||'');
         const movie=(tryGet(`movie-${base}`)||'');
         const show=(tryGet(`show-${base}`)||'');
+        const notesLinesJson=tryGet(`notesTabLines-${base}`);
+        const notesLines=notesLinesJson?JSON.parse(notesLinesJson):[];
+        
         const blocks=[];
         const m=selectedDateKey.match(/^photo-(\d{4})-(\d{2})-(\d{2})$/);
         if(m) blocks.push(formatFullDate(+m[1],+m[2],+m[3]));
-        if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
-        const meta=[];
-        if(word) meta.push(transformForDisplay(word,'word'));
-        if(icon) meta.push(icon);
-        if(meta.length) blocks.push(meta.join('\n'));
-        const media=[];
-        if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
-        if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
-        if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
-        if(media.length) blocks.push(media.join('\n'));
+        
+        // If notes tab lines exist, use them instead of standard content
+        if(notesLines.length>0){
+          const filteredLines=notesLines.filter(line=>line.trim().length>0);
+          if(filteredLines.length>0) blocks.push(filteredLines.join('\n'));
+        }else{
+          if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          const meta=[];
+          if(word) meta.push(transformForDisplay(word,'word'));
+          if(icon) meta.push(icon);
+          if(meta.length) blocks.push(meta.join('\n'));
+          const media=[];
+          if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
+          if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
+          if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
+          if(media.length) blocks.push(media.join('\n'));
+        }
+        
         polaroidSummary.textContent=blocks.join('\n');
         if(blocks.length){
           polaroid.classList.add('has-summary');
@@ -2427,6 +2640,9 @@
         polaroidImgWrap.classList.add('disabled');
         polaroid.classList.add('viewer-polaroid'); // Add viewer-only class for scoped styling
         ['noteSection','iconSection','wordSection','songSection','movieSection','showSection'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+        document.querySelector('.edit-tabs-container').classList.add('hidden');
+        standardTabContent.classList.add('hidden');
+        notesTabContent.classList.add('hidden');
         refreshSummaryFromStorage();
         saveDayBtn.classList.add('hidden');
         editDayBtn.classList.remove('hidden');
@@ -2440,7 +2656,15 @@
         isEditMode=true;
         polaroidImgWrap.classList.remove('disabled');
         polaroid.classList.remove('viewer-polaroid'); // Remove viewer-only class
-        ['noteSection','iconSection','wordSection','songSection','movieSection','showSection'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+        document.querySelector('.edit-tabs-container').classList.remove('hidden');
+        // Show the correct tab content based on current tab
+        if(currentEditTab==='standard'){
+          standardTabContent.classList.remove('hidden');
+          notesTabContent.classList.add('hidden');
+        }else{
+          standardTabContent.classList.add('hidden');
+          notesTabContent.classList.remove('hidden');
+        }
         saveDayBtn.classList.remove('hidden');
         editDayBtn.classList.add('hidden');
         polaroidSummary.style.display='none';
