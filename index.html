@@ -738,6 +738,58 @@
       color:#ffffff;
       box-shadow:0 4px 12px rgba(0,0,0,0.18);
     }
+
+    #welcomeModalBackdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.3);
+      z-index:2600;
+      display:none;
+    }
+    #welcomeModal{
+      position:fixed;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      width:90%;
+      max-width:520px;
+      background:var(--surface);
+      color:var(--text);
+      border-radius:18px;
+      box-shadow:0 8px 28px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
+      padding:26px 20px 22px;
+      display:none;
+      z-index:2610;
+      text-align:center;
+      font-family:var(--app-font);
+    }
+    #welcomeModal h3{
+      margin:0 0 18px;
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:1.5px;
+    }
+    #welcomeModal p{
+      margin:0 0 20px;
+      font-size:15px;
+      font-weight:800;
+      line-height:1.35;
+    }
+    #welcomeModal button{
+      width:100%;
+      font-family:inherit;
+      font-weight:800;
+      font-size:15px;
+      letter-spacing:1px;
+      padding:14px 18px;
+      border:none;
+      border-radius:14px;
+      cursor:pointer;
+      background:var(--outline-color);
+      color:#ffffff;
+      box-shadow:0 4px 12px rgba(0,0,0,0.18);
+      transition:transform .12s;
+    }
+    #welcomeModal button:active{ transform:scale(.96); }
   </style>
   <script>
     (function(){
@@ -815,20 +867,18 @@
     </div>
   </div>
 
-  <div class="fs-backdrop" id="welcomeFSBackdrop"></div>
-  <div class="fs-screen" id="welcomeFS" role="dialog" aria-modal="true" aria-labelledby="welcomeFSTitle" style="display:none;">
-    <header id="welcomeFSTitle">welcome!</header>
-    <div class="content">
-      <p class="product-description">the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!</p>
-      <button class="action-btn primary-btn" id="welcomeContinueBtn">continue</button>
-    </div>
+  <div id="welcomeModalBackdrop"></div>
+  <div id="welcomeModal" role="dialog" aria-modal="true" aria-labelledby="welcomeModalTitle">
+    <h3 id="welcomeModalTitle">welcome!</h3>
+    <p id="welcomeModalText" data-caps-sentence>the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!</p>
+    <button id="welcomeContinueBtn">continue</button>
   </div>
 
   <div class="fs-backdrop" id="aboutFSBackdrop"></div>
   <div class="fs-screen" id="aboutFS" role="dialog" aria-modal="true" aria-labelledby="aboutFSTitle" style="display:none;">
     <header id="aboutFSTitle">about</header>
     <div class="content">
-      <p class="product-description">the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!</p>
+      <p class="product-description" id="aboutParagraph" data-caps-sentence>the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!</p>
       <button class="action-btn" id="aboutBackBtn">back</button>
     </div>
   </div>
@@ -842,11 +892,11 @@
       <button class="action-btn" id="openThemesBtn">themes</button>
       <button class="action-btn" id="openCurrencyBtn">currency</button>
       <button class="action-btn" id="openReportBtn">report an issue</button>
+      <button class="action-btn" id="openAboutBtn">about</button>
       <button class="action-btn" id="openTermsBtn">terms & conditions</button>
       <button class="action-btn" id="openPrivacyBtn">privacy policy</button>
       <button class="action-btn" id="restorePurchasesBtn" style="display:none">restore my purchases</button>
       <button class="action-btn" id="deleteDataBtn">delete my data</button>
-      <button class="action-btn" id="openAboutBtn">about</button>
       <button class="action-btn" id="settingsBackBtn">back</button>
     </div>
   </div>
@@ -1199,12 +1249,14 @@
       const settingsBackBtn=document.getElementById('settingsBackBtn');
       const restorePurchasesBtn=document.getElementById('restorePurchasesBtn');
 
-      const welcomeFSBackdrop=document.getElementById('welcomeFSBackdrop');
-      const welcomeFS=document.getElementById('welcomeFS');
+      const welcomeModalBackdrop=document.getElementById('welcomeModalBackdrop');
+      const welcomeModal=document.getElementById('welcomeModal');
+      const welcomeModalText=document.getElementById('welcomeModalText');
       const welcomeContinueBtn=document.getElementById('welcomeContinueBtn');
 
       const aboutFSBackdrop=document.getElementById('aboutFSBackdrop');
       const aboutFS=document.getElementById('aboutFS');
+      const aboutParagraph=document.getElementById('aboutParagraph');
       const aboutBackBtn=document.getElementById('aboutBackBtn');
 
       const currencyFSBackdrop=document.getElementById('currencyFSBackdrop');
@@ -2425,14 +2477,16 @@
 
       openAboutBtn.addEventListener('click', ()=>{
         settingsFSBackdrop.style.display='none'; settingsFS.style.display='none';
-        aboutFSBackdrop.style.display='block'; aboutFS.style.display='flex'; resetScreenScroll(aboutFS);
+        aboutFSBackdrop.style.display='block'; aboutFS.style.display='flex'; 
+        applyCapsToSentenceParagraphs();
+        resetScreenScroll(aboutFS);
       });
       aboutFSBackdrop.addEventListener('click',(e)=>{ if(e.target===aboutFSBackdrop){ aboutFS.style.display='none'; aboutFSBackdrop.style.display='none'; openSettingsFS(); } });
       aboutBackBtn.addEventListener('click',()=>{ aboutFS.style.display='none'; aboutFSBackdrop.style.display='none'; openSettingsFS(); });
 
       welcomeContinueBtn.addEventListener('click', ()=>{
-        welcomeFS.style.display='none';
-        welcomeFSBackdrop.style.display='none';
+        welcomeModal.style.display='none';
+        welcomeModalBackdrop.style.display='none';
         trySet(WELCOME_SEEN_KEY, '1');
         unlockBodyScroll();
       });
@@ -2522,6 +2576,7 @@
         updateDeliveryFeeLabel();
         refreshDeleteMessage();
         refreshProductDescriptions();
+        applyCapsToSentenceParagraphs();
         if(selectedDateKey && dayModal.style.display==='flex'){
           const m=selectedDateKey.match(/^photo-(\d{4})-(\d{2})-(\d{2})$/);
           if(m){ setDayTitle(+m[1],+m[2]-1,+m[3]); }
@@ -2534,6 +2589,22 @@
           }
           resetScreenScroll(dayModal);
         }
+      }
+
+      function applyCapsToSentenceParagraphs(){
+        const BASE_ABOUT_TEXT = 'the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!';
+        const paragraphs = document.querySelectorAll('[data-caps-sentence]');
+        paragraphs.forEach(p => {
+          let text = BASE_ABOUT_TEXT;
+          if(capsMode === 'none') {
+            text = text.toLowerCase();
+          } else if(capsMode === 'all') {
+            text = text.toUpperCase();
+          } else if(capsMode === 'standard') {
+            text = sentenceCase(text);
+          }
+          p.textContent = text;
+        });
       }
 
       yearTitleEl.addEventListener('click', openYearPicker);
@@ -3995,9 +4066,9 @@
       // Show welcome popup on first run
       if(!tryGet(WELCOME_SEEN_KEY)){
         lockBodyScroll();
-        welcomeFSBackdrop.style.display='block';
-        welcomeFS.style.display='flex';
-        resetScreenScroll(welcomeFS);
+        welcomeModalBackdrop.style.display='block';
+        welcomeModal.style.display='block';
+        applyCapsToSentenceParagraphs();
       }
 
       async function compressDataUrl(dataUrl){ return dataUrl; }
