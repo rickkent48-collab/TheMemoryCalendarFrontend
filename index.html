@@ -1719,8 +1719,8 @@
       let fontKey = tryGet(FONT_KEY) || 'roboto';
       applyFont(fontKey,false);
 
-      const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow'];
-      let themeKey=tryGet(THEME_KEY) || 'sunset';
+      const THEMES=['pastel','dark','light','galaxy','sunset','forest','underwater','rainbow','tiger','earth'];
+      let themeKey=tryGet(THEME_KEY) || 'galaxy';
       applyTheme(themeKey,false);
 
       function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
@@ -1809,7 +1809,7 @@
       }
 
       function applyTheme(key, refreshUI){
-        if(!THEMES.includes(key)) key='sunset';
+        if(!THEMES.includes(key)) key='galaxy';
         document.documentElement.setAttribute('data-theme', key);
         themeKey=key;
         trySet(THEME_KEY,key);
