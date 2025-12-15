@@ -1678,7 +1678,7 @@
       let photoCache={};
       let emojiCache={};
 
-      let capsMode = tryGet(CAPS_KEY) || 'none';
+      let capsMode = tryGet(CAPS_KEY) || 'standard';
       applyCapsMode(capsMode,false);
 
       const FONT_MAP={
@@ -2271,7 +2271,7 @@
         if(meta.length) blocks.push(meta.join('\n'));
         const media=[];
         if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
-        if(movie) media.push(`🎞 ${transformForDisplay(movie,'text')} 🎞`);
+        if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
         if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
         if(media.length) blocks.push(media.join('\n'));
         polaroidSummary.textContent=blocks.join('\n');
@@ -3115,7 +3115,7 @@
         if(meta.length) blocks.push(meta.join('\n'));
         const media=[];
         if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
-        if(movie) media.push(`🎞 ${transformForDisplay(movie,'text')} 🎞`);
+        if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
         if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
         if(media.length) blocks.push(media.join('\n'));
         storePolaroidSummary.textContent=blocks.join('\n');
