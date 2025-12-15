@@ -298,6 +298,30 @@
     .polaroid.solo-photo{ padding:var(--polaroid-border); }
     .polaroid.solo-photo .polaroid-summary{ display:none !important; }
 
+    /* Viewer-only polaroid styling for saved day view modal */
+    #dayModal .viewer-polaroid{
+      /* Fixed height to match a fully filled polaroid */
+      /* Calculation: width * 0.96 (polaroid width) + 6px (top padding) + 12px (bottom padding) + 100px (summary area) */
+      height:calc(min(96vw, var(--content-max)) + 118px);
+      display:flex;
+      flex-direction:column;
+    }
+    #dayModal .viewer-polaroid .polaroid-img-wrap{
+      /* Image area remains square */
+      flex:0 0 auto;
+      width:100%;
+      aspect-ratio:1/1;
+    }
+    #dayModal .viewer-polaroid .polaroid-summary{
+      /* Wrapper for vertically centering the summary text */
+      flex:1;
+      display:flex !important;
+      align-items:center;
+      justify-content:center;
+      margin-top:0;
+      padding:10px 6px;
+    }
+
     .section-block,
     .note-section,
     .song-section,
@@ -2265,6 +2289,7 @@
       function enterSummaryMode(){
         isEditMode=false;
         polaroidImgWrap.classList.add('disabled');
+        polaroid.classList.add('viewer-polaroid'); // Add viewer-only class for scoped styling
         ['noteSection','iconSection','wordSection','songSection','movieSection','showSection'].forEach(id=>document.getElementById(id).classList.add('hidden'));
         refreshSummaryFromStorage();
         saveDayBtn.classList.add('hidden');
@@ -2278,6 +2303,7 @@
       function exitSummaryMode(){
         isEditMode=true;
         polaroidImgWrap.classList.remove('disabled');
+        polaroid.classList.remove('viewer-polaroid'); // Remove viewer-only class
         ['noteSection','iconSection','wordSection','songSection','movieSection','showSection'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
         saveDayBtn.classList.remove('hidden');
         editDayBtn.classList.add('hidden');
