@@ -5,6 +5,7 @@
   <title>memories calendar 2025</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#fff1b8" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&family=Poppins:wght@400;600;700&family=Merriweather:wght@400;700&family=Cookie&family=Dancing+Script&family=Pacifico&family=Boogaloo&family=Caveat&family=Indie+Flower&family=Jersey+10&display=swap" rel="stylesheet">
   <style>
@@ -4493,6 +4494,20 @@
        * ============================================================================
        */
 
+    })();
+  </script>
+  <script>
+    (function(){
+      if (typeof screen !== 'undefined' && screen.orientation && screen.orientation.lock) {
+        document.addEventListener('click', function lockOnce() {
+          screen.orientation.lock('portrait-primary').then(function() {
+            console.log('Orientation locked to portrait');
+          }).catch(function(err) {
+            console.warn('Could not lock orientation:', err);
+          });
+          document.removeEventListener('click', lockOnce);
+        }, { once: true });
+      }
     })();
   </script>
 </body>

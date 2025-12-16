@@ -1,0 +1,10 @@
+{
+  "name": "The Memory Calendar",
+  "short_name": "Memory Calendar",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}
