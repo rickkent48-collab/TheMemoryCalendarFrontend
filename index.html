@@ -348,13 +348,13 @@
       font-family:inherit; font-size:var(--note-fs);
       line-height:34px;
       text-align:center;
-      min-height:34px;
-      max-height:34px;
-      height:34px;
+      min-height:68px;
+      max-height:68px;
+      height:68px;
       overflow:hidden;
       padding:0 8px;
       color:var(--text);
-      white-space:nowrap;
+      white-space:pre-wrap;
     }
     .notes.mid-start,
     .notes.multiline{ padding-top:0; }
@@ -1147,7 +1147,7 @@
         <div id="editStandardPane">
         <section class="note-section" id="noteSection">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotes" class="notes mid-start" rows="1" maxlength="30" aria-label="add your note of the day"></textarea>
+          <textarea id="photoNotes" class="notes mid-start" rows="2" maxlength="60" aria-label="add your note of the day"></textarea>
         </section>
 
         <section class="section-block" id="wordSection">
@@ -2251,7 +2251,7 @@
 
       function loadFieldsIntoEditUI(){
         // Standard tab fields
-        photoNotes.value=transformForDisplay(editingData.note,'sentence').replace(/\n/g,' ');
+        photoNotes.value=transformForDisplay(editingData.note,'sentence');
         emojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
         if(editingData.icon){
           const chip=emojiGrid.querySelector(`.emoji-chip[data-emoji="${editingData.icon}"]`);
@@ -2332,10 +2332,32 @@
       });
       photoNotes.addEventListener('input',()=>{
         if(!isEditMode) return;
-        let v=photoNotes.value.replace(/\n/g,' ');
+        const MAX_CHARS = 60;
+        const CHARS_PER_LINE = 30;
+        let v = photoNotes.value;
+        
+        // Limit to max 2 lines (60 chars total)
+        if(v.length > MAX_CHARS) {
+          v = v.substring(0, MAX_CHARS);
+        }
+        
+        // Auto-wrap: ensure newline at position 30 if text exceeds one line
+        if(v.length > CHARS_PER_LINE) {
+          const firstNewlinePos = v.indexOf('\n');
+          // If there's no newline at position 30, add one
+          if(firstNewlinePos !== CHARS_PER_LINE) {
+            // Extract first 30 chars and remaining chars
+            const line1 = v.substring(0, CHARS_PER_LINE);
+            const line2 = v.substring(CHARS_PER_LINE).replace(/\n/g, '');
+            v = line1 + '\n' + line2;
+          }
+        }
+        
+        // Apply caps mode
         if(capsMode==='none') v=v.toLowerCase();
         else if(capsMode==='all') v=v.toUpperCase();
         else v=sentenceCase(v);
+        
         photoNotes.value=v;
         editingData.note=v;
       });
@@ -2613,7 +2635,7 @@
         } else {
           // Standard-mode rendering: show all six categories with emoji
           if(note) {
-            blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+            blocks.push(transformForDisplay(note,'sentence'));
           }
           
           const meta=[];
@@ -3497,7 +3519,7 @@
         const dateKey=makeKey(year,month,day);
         const photo=getSavedPhoto(dateKey);
         const base=baseDateKey(dateKey);
-        const note=(tryGet(`note-${base}`)||'').trim().replace(/\n/g,' ');
+        const note=(tryGet(`note-${base}`)||'').trim();
         const icon=(tryGet(`icon-${base}`)||'').trim();
         const word=(tryGet(`word-${base}`)||'').trim();
         const song=(tryGet(`song-${base}`)||'').trim();
@@ -3530,7 +3552,7 @@
           if(notesText) blocks.push(notesText);
         }else{
           // Standard-mode rendering: show all six categories with emoji
-          if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          if(note) blocks.push(transformForDisplay(note,'sentence'));
           const meta=[];
           if(word) meta.push(transformForDisplay(word,'word'));
           if(icon) meta.push(icon);
