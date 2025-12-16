@@ -2541,21 +2541,74 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
+        // Helper function to convert image to data URL using optimal format
+        const imageToDataURL = (img) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
+        };
+        
         // Handle photo persistence
         let photoToSave = draftPhotoData;
         
         // If draftPhotoData is empty but we have a preview image, convert it to data URL
         if(!photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
           try{
-            const canvas = document.createElement('canvas');
-            canvas.width = bigPreviewImg.naturalWidth || bigPreviewImg.width;
-            canvas.height = bigPreviewImg.naturalHeight || bigPreviewImg.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(bigPreviewImg, 0, 0);
-            photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+            const imgSrc = bigPreviewImg.src;
+            const isHttpSource = imgSrc.startsWith('http://') || imgSrc.startsWith('https://');
+            
+            // For http(s) sources, set crossOrigin to handle CORS
+            if(isHttpSource && bigPreviewImg.crossOrigin !== 'anonymous'){
+              // Create a new image with CORS enabled
+              const corsImg = new Image();
+              corsImg.crossOrigin = 'anonymous';
+              
+              // Wait for image to load with CORS (with 10-second timeout)
+              await new Promise((resolve, reject) => {
+                let resolved = false;
+                
+                const timeout = setTimeout(() => {
+                  if(!resolved){
+                    resolved = true;
+                    corsImg.onload = null;
+                    corsImg.onerror = null;
+                    reject(new Error('Image load timeout'));
+                  }
+                }, 10000);
+                
+                corsImg.onload = () => {
+                  if(!resolved){
+                    resolved = true;
+                    clearTimeout(timeout);
+                    corsImg.onerror = null;
+                    resolve();
+                  }
+                };
+                corsImg.onerror = () => {
+                  if(!resolved){
+                    resolved = true;
+                    clearTimeout(timeout);
+                    corsImg.onload = null;
+                    reject(new Error('CORS image load failed'));
+                  }
+                };
+                corsImg.src = imgSrc;
+              });
+              
+              // Draw CORS-enabled image to canvas
+              photoToSave = imageToDataURL(corsImg);
+            } else {
+              // For safe sources (blob:, data:) or already CORS-enabled images
+              photoToSave = imageToDataURL(bigPreviewImg);
+            }
           }catch(err){
             console.error('Failed to convert preview to data URL:', err);
             showToast('photo save failed');
+            // Don't set photoToSave on failure to avoid saving invalid data
+            photoToSave = null;
           }
         }
         
