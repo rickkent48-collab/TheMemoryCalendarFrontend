@@ -348,13 +348,14 @@
       font-family:inherit; font-size:var(--note-fs);
       line-height:34px;
       text-align:center;
-      min-height:34px;
-      max-height:34px;
-      height:34px;
+      min-height:68px;
+      max-height:68px;
+      height:68px;
       overflow:hidden;
       padding:0 8px;
       color:var(--text);
-      white-space:nowrap;
+      white-space:pre-wrap;
+      word-break:break-word;
     }
     .notes.mid-start,
     .notes.multiline{ padding-top:0; }
@@ -1147,7 +1148,7 @@
         <div id="editStandardPane">
         <section class="note-section" id="noteSection">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotes" class="notes mid-start" rows="1" maxlength="30" aria-label="add your note of the day"></textarea>
+          <textarea id="photoNotes" class="notes mid-start" rows="2" maxlength="60" aria-label="add your note of the day"></textarea>
         </section>
 
         <section class="section-block" id="wordSection">
@@ -2251,7 +2252,8 @@
 
       function loadFieldsIntoEditUI(){
         // Standard tab fields
-        photoNotes.value=transformForDisplay(editingData.note,'sentence').replace(/\n/g,' ');
+        // Note: preserve newlines in note for 2-line support
+        photoNotes.value=transformForDisplay(editingData.note,'sentence');
         emojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
         if(editingData.icon){
           const chip=emojiGrid.querySelector(`.emoji-chip[data-emoji="${editingData.icon}"]`);
@@ -2328,16 +2330,66 @@
       }
 
       photoNotes.addEventListener('keydown',e=>{
-        if(e.key==='Enter'){ e.preventDefault(); }
+        if(e.key==='Enter'){
+          e.preventDefault();
+          // Allow Enter to move to line 2 if line 1 has content but not full
+          const text = photoNotes.value;
+          const lines = text.split('\n');
+          if(lines.length === 1 && text.length > 0 && text.length < 30){
+            photoNotes.value = text + '\n';
+            photoNotes.setSelectionRange(text.length + 1, text.length + 1);
+          }
+        }
       });
       photoNotes.addEventListener('input',()=>{
         if(!isEditMode) return;
-        let v=photoNotes.value.replace(/\n/g,' ');
-        if(capsMode==='none') v=v.toLowerCase();
-        else if(capsMode==='all') v=v.toUpperCase();
-        else v=sentenceCase(v);
-        photoNotes.value=v;
-        editingData.note=v;
+        let v=photoNotes.value;
+        
+        // Split into lines and enforce 30 chars per line, max 2 lines
+        let lines = v.split('\n');
+        
+        // Limit to 2 lines
+        if(lines.length > 2){
+          lines = lines.slice(0, 2);
+        }
+        
+        // Enforce 30 chars per line
+        lines = lines.map((line, idx) => {
+          if(line.length > 30){
+            const overflow = line.substring(30);
+            line = line.substring(0, 30);
+            // If there's overflow and we're on line 1, move it to line 2
+            if(idx === 0 && lines.length === 1){
+              lines.push(overflow);
+            } else if(idx === 0 && lines.length === 2){
+              lines[1] = overflow + lines[1];
+            }
+          }
+          return line;
+        });
+        
+        // Limit line 2 to 30 chars
+        if(lines.length === 2 && lines[1].length > 30){
+          lines[1] = lines[1].substring(0, 30);
+        }
+        
+        // Apply caps transformation to each line
+        lines = lines.map(line => {
+          if(capsMode==='none') return line.toLowerCase();
+          else if(capsMode==='all') return line.toUpperCase();
+          else return sentenceCase(line);
+        });
+        
+        const newValue = lines.join('\n');
+        const cursorPos = photoNotes.selectionStart;
+        photoNotes.value = newValue;
+        
+        // Try to maintain cursor position
+        if(cursorPos <= newValue.length){
+          photoNotes.setSelectionRange(cursorPos, cursorPos);
+        }
+        
+        editingData.note=newValue;
       });
 
       emojiGrid.addEventListener('click',(e)=>{
@@ -2612,8 +2664,9 @@
           if(notesText) blocks.push(notesText);
         } else {
           // Standard-mode rendering: show all six categories with emoji
+          // Note: preserve newlines in note for 2-line support
           if(note) {
-            blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+            blocks.push(transformForDisplay(note,'sentence'));
           }
           
           const meta=[];
@@ -3497,7 +3550,7 @@
         const dateKey=makeKey(year,month,day);
         const photo=getSavedPhoto(dateKey);
         const base=baseDateKey(dateKey);
-        const note=(tryGet(`note-${base}`)||'').trim().replace(/\n/g,' ');
+        const note=(tryGet(`note-${base}`)||'').trim();
         const icon=(tryGet(`icon-${base}`)||'').trim();
         const word=(tryGet(`word-${base}`)||'').trim();
         const song=(tryGet(`song-${base}`)||'').trim();
@@ -3530,7 +3583,8 @@
           if(notesText) blocks.push(notesText);
         }else{
           // Standard-mode rendering: show all six categories with emoji
-          if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          // Note: preserve newlines in note for 2-line support
+          if(note) blocks.push(transformForDisplay(note,'sentence'));
           const meta=[];
           if(word) meta.push(transformForDisplay(word,'word'));
           if(icon) meta.push(icon);
