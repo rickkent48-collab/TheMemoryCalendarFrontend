@@ -346,18 +346,27 @@
     .notes{
       width:100%; border:none; outline:none; background:transparent; resize:none;
       font-family:inherit; font-size:var(--note-fs);
-      line-height:34px;
+      line-height:1.35;
       text-align:center;
-      min-height:34px;
-      max-height:34px;
-      height:34px;
       overflow:hidden;
       padding:0 8px;
       color:var(--text);
-      white-space:nowrap;
     }
-    .notes.mid-start,
-    .notes.multiline{ padding-top:0; }
+    .notes.mid-start{
+      padding-top:0;
+      white-space:pre-wrap;
+      min-height:68px;
+      max-height:68px;
+      height:68px;
+    }
+    .notes.multiline{
+      padding-top:0;
+      white-space:pre-wrap;
+      overflow:auto;
+      min-height:158px;
+      max-height:158px;
+      height:auto;
+    }
 
     .song-input{ width:100%; background:transparent; border:none; outline:none; font-family:inherit; font-size:14px; text-align:center; padding:0 8px; height:34px; color:var(--text); }
 
@@ -1147,7 +1156,7 @@
         <div id="editStandardPane">
         <section class="note-section" id="noteSection">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotes" class="notes mid-start" rows="1" maxlength="30" aria-label="add your note of the day"></textarea>
+          <textarea id="photoNotes" class="notes mid-start" rows="2" maxlength="60" aria-label="add your note of the day"></textarea>
         </section>
 
         <section class="section-block" id="wordSection">
@@ -2251,7 +2260,7 @@
 
       function loadFieldsIntoEditUI(){
         // Standard tab fields
-        photoNotes.value=transformForDisplay(editingData.note,'sentence').replace(/\n/g,' ');
+        photoNotes.value=editingData.note||'';
         emojiGrid.querySelectorAll('.emoji-chip.selected').forEach(c=>c.classList.remove('selected'));
         if(editingData.icon){
           const chip=emojiGrid.querySelector(`.emoji-chip[data-emoji="${editingData.icon}"]`);
@@ -2327,17 +2336,29 @@
         }
       }
 
-      photoNotes.addEventListener('keydown',e=>{
-        if(e.key==='Enter'){ e.preventDefault(); }
-      });
+      // Standard tab note input handler - supports 2 lines, 30 chars per line
       photoNotes.addEventListener('input',()=>{
         if(!isEditMode) return;
-        let v=photoNotes.value.replace(/\n/g,' ');
-        if(capsMode==='none') v=v.toLowerCase();
-        else if(capsMode==='all') v=v.toUpperCase();
-        else v=sentenceCase(v);
-        photoNotes.value=v;
-        editingData.note=v;
+        let v=photoNotes.value;
+        // Handle line wrapping: max 2 lines, 30 chars per line
+        const lines = v.split('\n');
+        let processedLines = [];
+        for(let line of lines){
+          // Break line into chunks of 30 chars
+          while(line.length > 30){
+            processedLines.push(line.substring(0, 30));
+            line = line.substring(30);
+          }
+          if(line.length > 0 || processedLines.length < 2) processedLines.push(line);
+          if(processedLines.length >= 2) break;
+        }
+        // Limit to 2 lines
+        processedLines = processedLines.slice(0, 2);
+        const newValue = processedLines.join('\n');
+        if(newValue !== v){
+          photoNotes.value = newValue;
+        }
+        editingData.note = newValue;
       });
 
       emojiGrid.addEventListener('click',(e)=>{
@@ -2613,7 +2634,7 @@
         } else {
           // Standard-mode rendering: show all six categories with emoji
           if(note) {
-            blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+            blocks.push(note);
           }
           
           const meta=[];
@@ -3497,7 +3518,7 @@
         const dateKey=makeKey(year,month,day);
         const photo=getSavedPhoto(dateKey);
         const base=baseDateKey(dateKey);
-        const note=(tryGet(`note-${base}`)||'').trim().replace(/\n/g,' ');
+        const note=(tryGet(`note-${base}`)||'').trim();
         const icon=(tryGet(`icon-${base}`)||'').trim();
         const word=(tryGet(`word-${base}`)||'').trim();
         const song=(tryGet(`song-${base}`)||'').trim();
@@ -3530,7 +3551,7 @@
           if(notesText) blocks.push(notesText);
         }else{
           // Standard-mode rendering: show all six categories with emoji
-          if(note) blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          if(note) blocks.push(note);
           const meta=[];
           if(word) meta.push(transformForDisplay(word,'word'));
           if(icon) meta.push(icon);
