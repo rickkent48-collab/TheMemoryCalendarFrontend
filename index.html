@@ -2338,12 +2338,15 @@
           v = v.substring(0, MAX_CHARS);
         }
         
-        // Auto-wrap: insert line break after 30 characters if not already present
-        const firstNewlinePos = v.indexOf('\n');
-        if(v.length > CHARS_PER_LINE && firstNewlinePos !== CHARS_PER_LINE) {
-          // Only add newline if there isn't one already in the right position
-          if(firstNewlinePos === -1 || firstNewlinePos > CHARS_PER_LINE) {
-            v = v.substring(0, CHARS_PER_LINE) + '\n' + v.substring(CHARS_PER_LINE).replace(/\n/g, '');
+        // Auto-wrap: ensure newline at position 30 if text exceeds one line
+        if(v.length > CHARS_PER_LINE) {
+          const firstNewlinePos = v.indexOf('\n');
+          // If there's no newline at position 30, add one
+          if(firstNewlinePos !== CHARS_PER_LINE) {
+            // Extract first 30 chars and remaining chars
+            const line1 = v.substring(0, CHARS_PER_LINE);
+            const line2 = v.substring(CHARS_PER_LINE).replace(/\n/g, '');
+            v = line1 + '\n' + line2;
           }
         }
         
