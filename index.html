@@ -303,9 +303,9 @@
     /* Viewer-only polaroid styling for saved day view modal */
     #dayModal .viewer-polaroid{
       /* Fixed height to match a fully filled polaroid */
-      /* Calculation: image width + 118px */
-      /* 118px = 6px (top padding) + 12px (bottom padding) + 100px (summary area height) */
-      height:calc(min(96vw, var(--content-max)) + 118px);
+      /* Calculation: image width + 136px */
+      /* 136px = 6px (top padding) + 12px (bottom padding) + 118px (summary area for 8 lines) */
+      height:calc(min(96vw, var(--content-max)) + 136px);
       display:flex;
       flex-direction:column;
     }
@@ -1203,7 +1203,7 @@
         <div id="editNotesPane" style="display:none;">
         <section class="note-section" id="notesSectionNotes">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotesNotes" class="notes multiline" rows="6" maxlength="180" aria-label="add your note of the day" style="white-space:pre-wrap; overflow:auto; text-align:center; line-height:1.35; height:auto; min-height:136px; max-height:136px;"></textarea>
+          <textarea id="photoNotesNotes" class="notes multiline" rows="7" maxlength="210" aria-label="add your note of the day" style="white-space:pre-wrap; overflow:auto; text-align:center; line-height:1.35; height:auto; min-height:158px; max-height:158px;"></textarea>
         </section>
 
         <section class="section-block" id="iconSectionNotes">
@@ -2173,10 +2173,13 @@
         if(!cell) return;
         const base=baseDateKey(photoKey);
         
-        // For notes-mode: NO emoji badge on the day-view polaroid
-        // For standard-mode: show emoji badge if icon exists
+        // Get the appropriate emoji depending on mode
         let iconVal = '';
-        if (!isNotesMode(base)) {
+        if (isNotesMode(base)) {
+          // Notes mode: use notesIcon for emoji calendar
+          iconVal = (tryGet(`notesIcon-${base}`)||'').trim();
+        } else {
+          // Standard mode: use icon for emoji calendar
           iconVal = (tryGet(`icon-${base}`)||'').trim();
         }
         
@@ -2439,7 +2442,7 @@
         photoNotesNotes.addEventListener('input',()=>{
           if(!isEditMode) return;
           let v=photoNotesNotes.value;
-          // Handle line wrapping: max 6 lines, 30 chars per line
+          // Handle line wrapping: max 7 lines, 30 chars per line
           const lines = v.split('\n');
           let processedLines = [];
           for(let line of lines){
@@ -2448,11 +2451,11 @@
               processedLines.push(line.substring(0, 30));
               line = line.substring(30);
             }
-            if(line.length > 0 || processedLines.length < 6) processedLines.push(line);
-            if(processedLines.length >= 6) break;
+            if(line.length > 0 || processedLines.length < 7) processedLines.push(line);
+            if(processedLines.length >= 7) break;
           }
-          // Limit to 6 lines
-          processedLines = processedLines.slice(0, 6);
+          // Limit to 7 lines
+          processedLines = processedLines.slice(0, 7);
           const newValue = processedLines.join('\n');
           if(newValue !== v){
             photoNotesNotes.value = newValue;
