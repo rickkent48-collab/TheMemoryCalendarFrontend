@@ -2138,7 +2138,20 @@
           for(let i=0;i<mondayIndex;i++){ const pad=document.createElement('div'); pad.className='pad'; grid.appendChild(pad); }
           for(let d=1;d<=days;d++){
             const photoKey=makeKey(year,m+1,d);
-            const iconVal=emojiCache[photoKey] || tryGet(iconKey(photoKey)) || '';
+            const base=baseDateKey(photoKey);
+            
+            // Detect mode: notes-mode if notesText or notesIcon exists
+            const notesText=(tryGet(`notesText-${base}`)||'').trim();
+            const notesIcon=(tryGet(`notesIcon-${base}`)||'').trim();
+            const isNotesMode = !!(notesText || notesIcon);
+            
+            // For notes-mode: NO emoji badge on the day-view polaroid
+            // For standard-mode: show emoji badge if icon exists
+            let iconVal = '';
+            if (!isNotesMode) {
+              iconVal = emojiCache[photoKey] || tryGet(iconKey(photoKey)) || '';
+            }
+            
             const cell=document.createElement('div');
             cell.className='day emoji-day';
             cell.dataset.date=photoKey; cell.dataset.y=year; cell.dataset.m=m+1; cell.dataset.d=d;
@@ -2159,8 +2172,19 @@
         const cell=calEmoji.querySelector(`.day[data-date="${photoKey}"]`);
         if(!cell) return;
         const base=baseDateKey(photoKey);
-        // Check both standard icon and notes icon
-        const iconVal=(tryGet(`icon-${base}`)||'') || (tryGet(`notesIcon-${base}`)||'');
+        
+        // Detect mode: notes-mode if notesText or notesIcon exists
+        const notesText=(tryGet(`notesText-${base}`)||'').trim();
+        const notesIcon=(tryGet(`notesIcon-${base}`)||'').trim();
+        const isNotesMode = !!(notesText || notesIcon);
+        
+        // For notes-mode: NO emoji badge on the day-view polaroid
+        // For standard-mode: show emoji badge if icon exists
+        let iconVal = '';
+        if (!isNotesMode) {
+          iconVal = (tryGet(`icon-${base}`)||'').trim();
+        }
+        
         let badge=cell.querySelector('.emoji-badge');
         if(iconVal){
           if(!badge){ badge=document.createElement('div'); badge.className='emoji-badge'; cell.appendChild(badge); }
@@ -2585,26 +2609,29 @@
         const m=selectedDateKey.match(/^photo-(\d{4})-(\d{2})-(\d{2})$/);
         if(m) blocks.push(formatFullDate(+m[1],+m[2],+m[3]));
         
-        // Display notes text if it exists (from notes tab)
-        if(notesText) {
-          blocks.push(notesText.replace(/\n/g,' '));
-        } else if(note) {
-          // Otherwise display standard note
-          blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+        // Detect mode: notes-mode if notesText or notesIcon exists
+        const isNotesMode = !!(notesText || notesIcon);
+        
+        if(isNotesMode){
+          // Notes-mode rendering: show notes text (preserve line breaks), NO emoji
+          if(notesText) blocks.push(notesText);
+        } else {
+          // Standard-mode rendering: show all six categories with emoji
+          if(note) {
+            blocks.push(transformForDisplay(note,'sentence').replace(/\n/g,' '));
+          }
+          
+          const meta=[];
+          if(word) meta.push(transformForDisplay(word,'word'));
+          if(icon) meta.push(icon);
+          if(meta.length) blocks.push(meta.join('\n'));
+          
+          const media=[];
+          if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
+          if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
+          if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
+          if(media.length) blocks.push(media.join('\n'));
         }
-        
-        const meta=[];
-        if(word) meta.push(transformForDisplay(word,'word'));
-        // Show icon from either tab (notes icon takes precedence as it was saved more recently if both exist)
-        const displayIcon = notesIcon || icon;
-        if(displayIcon) meta.push(displayIcon);
-        if(meta.length) blocks.push(meta.join('\n'));
-        
-        const media=[];
-        if(song) media.push(`🎶 ${transformForDisplay(song,'text')} 🎶`);
-        if(movie) media.push(`🎟 ${transformForDisplay(movie,'text')} 🎟`);
-        if(show) media.push(`📺 ${transformForDisplay(show,'text')} 📺`);
-        if(media.length) blocks.push(media.join('\n'));
         
         polaroidSummary.textContent=blocks.join('\n');
         if(blocks.length){
