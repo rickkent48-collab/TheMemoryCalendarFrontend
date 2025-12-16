@@ -836,18 +836,14 @@
           roboto: '"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif',
           poppins: '"Poppins",system-ui,-apple-system,"Segoe UI",sans-serif',
           merriweather: '"Merriweather",Georgia,serif',
-          cookie: '"Cookie",cursive',
           dancingscript: '"Dancing Script",cursive',
-          pacifico: '"Pacifico",cursive',
           boogaloo: '"Boogaloo",cursive',
           caveat: '"Caveat",cursive',
           indieflower: '"Indie Flower",cursive',
           jersey10: '"Jersey 10",cursive'
         };
         const ICON_STROKE_MAP={
-          cookie:1.6,
           dancingscript:1.6,
-          pacifico:1.6,
           boogaloo:1.6,
           caveat:1.6,
           indieflower:1.6,
@@ -904,7 +900,7 @@
 
   <div id="welcomeModalBackdrop"></div>
   <div id="welcomeModal" role="dialog" aria-modal="true" aria-labelledby="welcomeModalTitle">
-    <h3 id="welcomeModalTitle">welcome!</h3>
+    <h3 id="welcomeModalTitle">Welcome!</h3>
     <p id="welcomeModalText" data-caps-sentence>the memory calendar is a place for journaling, saving memories and creating art. there are no ads or in-app purchases but there is an in-app store where you can purchase your beautiful custom daily polaroids and monthly posters. as a solo passion project, every purchase is greatly appreciated and helps in future developments!</p>
     <button id="welcomeContinueBtn">continue</button>
   </div>
@@ -964,9 +960,7 @@
       <button class="choice-btn font-choice" data-font="roboto" style="font-family:'Roboto',sans-serif;">Roboto</button>
       <button class="choice-btn font-choice" data-font="poppins" style="font-family:'Poppins',sans-serif;">Poppins</button>
       <button class="choice-btn font-choice" data-font="merriweather" style="font-family:'Merriweather',serif;">Merriweather</button>
-      <button class="choice-btn font-choice" data-font="cookie" style="font-family:'Cookie',cursive;">Cookie</button>
       <button class="choice-btn font-choice" data-font="dancingscript" style="font-family:'Dancing Script',cursive;">Dancing Script</button>
-      <button class="choice-btn font-choice" data-font="pacifico" style="font-family:'Pacifico',cursive;">Pacifico</button>
       <button class="choice-btn font-choice" data-font="boogaloo" style="font-family:'Boogaloo',cursive;">Boogaloo</button>
       <button class="choice-btn font-choice" data-font="caveat" style="font-family:'Caveat',cursive;">Caveat</button>
       <button class="choice-btn font-choice" data-font="indieflower" style="font-family:'Indie Flower',cursive;">Indie Flower</button>
@@ -1158,7 +1152,7 @@
         <div id="editStandardPane">
         <section class="note-section" id="noteSection">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotes" class="notes mid-start" rows="2" maxlength="60" aria-label="add your note of the day"></textarea>
+          <textarea id="photoNotes" class="notes mid-start" rows="2" maxlength="80" aria-label="add your note of the day"></textarea>
         </section>
 
         <section class="section-block" id="wordSection">
@@ -1214,7 +1208,7 @@
         <div id="editNotesPane" style="display:none;">
         <section class="note-section" id="notesSectionNotes">
           <h3 class="section-header">add your note of the day</h3>
-          <textarea id="photoNotesNotes" class="notes multiline" rows="7" maxlength="210" aria-label="add your note of the day" style="white-space:pre-wrap; overflow:auto; text-align:center; line-height:1.35; height:auto; min-height:158px; max-height:158px;"></textarea>
+          <textarea id="photoNotesNotes" class="notes multiline" rows="7" maxlength="280" aria-label="add your note of the day" style="white-space:pre-wrap; overflow:auto; text-align:center; line-height:1.35; height:auto; min-height:158px; max-height:158px;"></textarea>
         </section>
 
         <section class="section-block" id="iconSectionNotes">
@@ -2338,18 +2332,18 @@
         }
       }
 
-      // Standard tab note input handler - supports 2 lines, 30 chars per line
+      // Standard tab note input handler - supports 2 lines, 40 chars per line
       photoNotes.addEventListener('input',()=>{
         if(!isEditMode) return;
         let v=photoNotes.value;
-        // Handle line wrapping: max 2 lines, 30 chars per line
+        // Handle line wrapping: max 2 lines, 40 chars per line
         const lines = v.split('\n');
         let processedLines = [];
         for(let line of lines){
-          // Break line into chunks of 30 chars
-          while(line.length > 30){
-            processedLines.push(line.substring(0, 30));
-            line = line.substring(30);
+          // Break line into chunks of 40 chars
+          while(line.length > 40){
+            processedLines.push(line.substring(0, 40));
+            line = line.substring(40);
           }
           if(line.length > 0 || processedLines.length < 2) processedLines.push(line);
           if(processedLines.length >= 2) break;
@@ -2465,14 +2459,14 @@
         photoNotesNotes.addEventListener('input',()=>{
           if(!isEditMode) return;
           let v=photoNotesNotes.value;
-          // Handle line wrapping: max 7 lines, 30 chars per line
+          // Handle line wrapping: max 7 lines, 40 chars per line
           const lines = v.split('\n');
           let processedLines = [];
           for(let line of lines){
-            // Break line into chunks of 30 chars
-            while(line.length > 30){
-              processedLines.push(line.substring(0, 30));
-              line = line.substring(30);
+            // Break line into chunks of 40 chars
+            while(line.length > 40){
+              processedLines.push(line.substring(0, 40));
+              line = line.substring(40);
             }
             if(line.length > 0 || processedLines.length < 7) processedLines.push(line);
             if(processedLines.length >= 7) break;
