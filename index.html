@@ -893,7 +893,7 @@
 
   <div class="order-status-overlay" id="orderStatusOverlay" style="display:none;">
     <div class="order-status-content">
-      <div class="order-status-message" id="orderStatusMessage">processing your order…</div>
+      <div class="order-status-message" id="orderStatusMessage">Processing... Please wait...</div>
       <button class="action-btn" id="orderStatusBackBtn" style="display:none;">back to calendar</button>
     </div>
   </div>
@@ -1971,6 +1971,12 @@
       function refreshDeleteMessage(){
         deleteDataMessage.textContent=getDeleteMessage();
         deleteDataTitle.textContent=getDeleteTitle();
+      }
+      function getProcessingMessage(){
+        const base = 'Processing... Please wait...';
+        if(capsMode==='none') return base.toLowerCase();
+        if(capsMode==='all') return base.toUpperCase();
+        return base;
       }
       function refreshProductDescriptions(){
         storePolaroidDescription.textContent=transformProductText(PRODUCT_DAY_BASE);
@@ -4195,7 +4201,7 @@
             orderStatusOverlay.style.display = 'flex';
           }
           if (orderStatusMessage) {
-            orderStatusMessage.textContent = 'processing your order…';
+            orderStatusMessage.textContent = getProcessingMessage();
           }
           if (orderStatusBackBtn) {
             orderStatusBackBtn.style.display = 'none';
@@ -4492,6 +4498,76 @@
        * 
        * ============================================================================
        */
+
+      // ============================================================================
+      // Android Portrait Orientation Lock
+      // ============================================================================
+      // Best-effort portrait lock for Android devices only
+      // Uses Screen Orientation API when supported, silently ignores failures
+      // No overlays, prompts, or UI changes
+      (function() {
+        // Detect Android device
+        const isAndroid = /Android/i.test(navigator.userAgent || '');
+        if (!isAndroid) return;
+
+        // Check if Screen Orientation API is available
+        const screen = window.screen;
+        if (!screen || !screen.orientation || typeof screen.orientation.lock !== 'function') {
+          return; // API not supported, silently exit
+        }
+
+        let lockAttempted = false;
+
+        // Function to attempt portrait lock
+        function attemptPortraitLock() {
+          if (lockAttempted) return; // Only try once per gesture
+          lockAttempted = true;
+
+          screen.orientation.lock('portrait').then(
+            () => {
+              console.info('[Portrait Lock] Successfully locked to portrait orientation');
+            },
+            (err) => {
+              // Silently ignore failures - lock may not be supported in all contexts
+              console.debug('[Portrait Lock] Could not lock orientation:', err.message || err);
+            }
+          );
+        }
+
+        // Attempt lock after user gesture (required by browsers)
+        // Using pointerup as it covers both touch and mouse
+        const attemptOnGesture = () => {
+          attemptPortraitLock();
+          // Remove listener after first attempt
+          document.removeEventListener('pointerup', attemptOnGesture);
+          document.removeEventListener('click', attemptOnGesture);
+        };
+
+        document.addEventListener('pointerup', attemptOnGesture, { once: true, passive: true });
+        document.addEventListener('click', attemptOnGesture, { once: true, passive: true });
+
+        // Re-try on visibility change (app returning to foreground)
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            lockAttempted = false;
+            attemptPortraitLock();
+          }
+        });
+
+        // Re-try on orientation change
+        if (screen.orientation && typeof screen.orientation.addEventListener === 'function') {
+          screen.orientation.addEventListener('change', () => {
+            lockAttempted = false;
+            attemptPortraitLock();
+          });
+        } else if (window.addEventListener) {
+          // Fallback for older implementations
+          window.addEventListener('orientationchange', () => {
+            lockAttempted = false;
+            attemptPortraitLock();
+          });
+        }
+      })();
 
     })();
   </script>
