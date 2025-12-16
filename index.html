@@ -655,7 +655,9 @@
       line-height:1.4;
       font-size:13px;
       font-weight:600;
-      white-space:pre-line;
+      white-space:pre;
+      word-break:keep-all;
+      overflow-wrap:normal;
     }
 
     .product-description{
@@ -2538,8 +2540,27 @@
         if(!isEditMode || !selectedDateKey) return;
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
-        if(draftPhotoData){
-          const compressed=await compressDataUrl(draftPhotoData);
+        
+        // Handle photo persistence
+        let photoToSave = draftPhotoData;
+        
+        // If draftPhotoData is empty but we have a preview image, convert it to data URL
+        if(!photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
+          try{
+            const canvas = document.createElement('canvas');
+            canvas.width = bigPreviewImg.naturalWidth || bigPreviewImg.width;
+            canvas.height = bigPreviewImg.naturalHeight || bigPreviewImg.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bigPreviewImg, 0, 0);
+            photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+          }catch(err){
+            console.error('Failed to convert preview to data URL:', err);
+            showToast('photo save failed');
+          }
+        }
+        
+        if(photoToSave){
+          const compressed=await compressDataUrl(photoToSave);
           if(trySet(selectedDateKey,compressed)){
             photoCache[selectedDateKey]=compressed;
             const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
