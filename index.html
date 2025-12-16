@@ -2541,42 +2541,105 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
-        // Handle photo persistence
-        let photoToSave = draftPhotoData;
+        // Handle photo persistence with robust fallback logic
+        let photoToSave = null;
         
-        // If draftPhotoData is empty but we have a preview image, convert it to data URL
-        if(!photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
-          try{
-            const canvas = document.createElement('canvas');
-            canvas.width = bigPreviewImg.naturalWidth || bigPreviewImg.width;
-            canvas.height = bigPreviewImg.naturalHeight || bigPreviewImg.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(bigPreviewImg, 0, 0);
-            photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
-          }catch(err){
-            console.error('Failed to convert preview to data URL:', err);
-            showToast('photo save failed');
+        // Prefer draftPhotoData when present and non-empty
+        if(draftPhotoData && draftPhotoData.trim()){
+          photoToSave = draftPhotoData;
+        }
+        // Fallback: if bigPreviewImg has a valid source, export at high quality
+        else if(bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
+          const src = bigPreviewImg.src;
+          // Check if src is a data URL, blob URL, or http(s) URL
+          if(src.startsWith('data:') || src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')){
+            try{
+              // Create high-resolution canvas using EXPORT_SCALE_MULTIPLIER
+              const baseWidth = bigPreviewImg.naturalWidth || bigPreviewImg.width;
+              const baseHeight = bigPreviewImg.naturalHeight || bigPreviewImg.height;
+              
+              if(baseWidth && baseHeight){
+                const exportScale = EXPORT_SCALE_MULTIPLIER;
+                const canvas = document.createElement('canvas');
+                canvas.width = baseWidth * exportScale;
+                canvas.height = baseHeight * exportScale;
+                const ctx = canvas.getContext('2d', { alpha: false });
+                
+                // Use high quality image smoothing
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                // Draw scaled image
+                ctx.drawImage(bigPreviewImg, 0, 0, canvas.width, canvas.height);
+                
+                // Export as high-quality JPEG
+                photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+              }
+            }catch(err){
+              console.error('Failed to convert preview to high-quality data URL:', err);
+            }
           }
         }
         
-        if(photoToSave){
-          const compressed=await compressDataUrl(photoToSave);
-          if(trySet(selectedDateKey,compressed)){
-            photoCache[selectedDateKey]=compressed;
-            const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
-            if(cell){
-              const img=cell.querySelector('img');
-              if(img){ img.src=compressed; img.style.display='block'; }
-              cell.classList.add('has-photo');
+        // Persist photo if we have valid data
+        if(photoToSave && photoToSave.trim()){
+          let savedSuccessfully = false;
+          
+          // Try compression first
+          const compressed = await compressDataUrl(photoToSave);
+          if(compressed && compressed.trim()){
+            if(trySet(selectedDateKey, compressed)){
+              photoCache[selectedDateKey] = compressed;
+              savedSuccessfully = true;
+              
+              // Update calendar grid cell image
+              const cell = calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
+              if(cell){
+                const img = cell.querySelector('img');
+                if(img){ 
+                  img.src = compressed; 
+                  img.style.display = 'block'; 
+                }
+                cell.classList.add('has-photo');
+              }
             }
           }
-          draftPhotoData=null;
           
-          // Clean up object URL if it exists
+          // Fallback: try saving uncompressed if compression failed or returned empty
+          if(!savedSuccessfully){
+            if(trySet(selectedDateKey, photoToSave)){
+              photoCache[selectedDateKey] = photoToSave;
+              savedSuccessfully = true;
+              
+              // Update calendar grid cell image
+              const cell = calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
+              if(cell){
+                const img = cell.querySelector('img');
+                if(img){ 
+                  img.src = photoToSave; 
+                  img.style.display = 'block'; 
+                }
+                cell.classList.add('has-photo');
+              }
+            }
+          }
+          
+          // Show error if both attempts failed
+          if(!savedSuccessfully){
+            console.error('Photo save failed: could not persist to localStorage');
+            showToast('photo save failed');
+          }
+          
+          // Clean up draft data and object URLs
+          draftPhotoData = null;
           if(draftPhotoObjectURL){
             URL.revokeObjectURL(draftPhotoObjectURL);
-            draftPhotoObjectURL=null;
+            draftPhotoObjectURL = null;
           }
+        }else if(bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
+          // We had a preview but failed to convert it - show error
+          console.error('Photo save failed: could not convert preview to data URL');
+          showToast('photo save failed');
         }
         
         // Save based on current tab - only save active tab's content
