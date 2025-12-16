@@ -2541,6 +2541,16 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
+        // Helper function to convert image to data URL
+        const imageToDataURL = (img) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          return canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+        };
+        
         // Handle photo persistence
         let photoToSave = draftPhotoData;
         
@@ -2548,7 +2558,6 @@
         if(!photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
           try{
             const imgSrc = bigPreviewImg.src;
-            const isSafeSource = imgSrc.startsWith('blob:') || imgSrc.startsWith('data:');
             const isHttpSource = imgSrc.startsWith('http://') || imgSrc.startsWith('https://');
             
             // For http(s) sources, set crossOrigin to handle CORS
@@ -2565,20 +2574,10 @@
               });
               
               // Draw CORS-enabled image to canvas
-              const canvas = document.createElement('canvas');
-              canvas.width = corsImg.naturalWidth || corsImg.width;
-              canvas.height = corsImg.naturalHeight || corsImg.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(corsImg, 0, 0);
-              photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+              photoToSave = imageToDataURL(corsImg);
             } else {
               // For safe sources (blob:, data:) or already CORS-enabled images
-              const canvas = document.createElement('canvas');
-              canvas.width = bigPreviewImg.naturalWidth || bigPreviewImg.width;
-              canvas.height = bigPreviewImg.naturalHeight || bigPreviewImg.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(bigPreviewImg, 0, 0);
-              photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+              photoToSave = imageToDataURL(bigPreviewImg);
             }
           }catch(err){
             console.error('Failed to convert preview to data URL:', err);
