@@ -2329,16 +2329,22 @@
       });
       photoNotes.addEventListener('input',()=>{
         if(!isEditMode) return;
-        let v=photoNotes.value.replace(/\n/g,' ');
+        const MAX_CHARS = 60;
+        const CHARS_PER_LINE = 30;
+        let v = photoNotes.value;
         
-        // Auto-wrap at 30 characters per line, max 2 lines (60 chars total)
-        if(v.length > 60) {
-          v = v.substring(0, 60);
+        // Limit to max 2 lines (60 chars total)
+        if(v.length > MAX_CHARS) {
+          v = v.substring(0, MAX_CHARS);
         }
         
-        // Insert line break after 30 characters
-        if(v.length > 30) {
-          v = v.substring(0, 30) + '\n' + v.substring(30);
+        // Auto-wrap: insert line break after 30 characters if not already present
+        const firstNewlinePos = v.indexOf('\n');
+        if(v.length > CHARS_PER_LINE && firstNewlinePos !== CHARS_PER_LINE) {
+          // Only add newline if there isn't one already in the right position
+          if(firstNewlinePos === -1 || firstNewlinePos > CHARS_PER_LINE) {
+            v = v.substring(0, CHARS_PER_LINE) + '\n' + v.substring(CHARS_PER_LINE).replace(/\n/g, '');
+          }
         }
         
         // Apply caps mode
