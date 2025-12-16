@@ -2541,14 +2541,14 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
-        // Helper function to convert image to data URL
+        // Helper function to convert image to data URL using optimal format
         const imageToDataURL = (img) => {
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth || img.width;
           canvas.height = img.naturalHeight || img.height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0);
-          return canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+          return canvasToDataURL(canvas, EXPORT_QUALITY);
         };
         
         // Handle photo persistence
