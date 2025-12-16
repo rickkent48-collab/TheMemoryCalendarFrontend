@@ -2566,10 +2566,24 @@
               const corsImg = new Image();
               corsImg.crossOrigin = 'anonymous';
               
-              // Wait for image to load with CORS
+              // Wait for image to load with CORS (with 10-second timeout)
               await new Promise((resolve, reject) => {
-                corsImg.onload = resolve;
-                corsImg.onerror = () => reject(new Error('CORS image load failed'));
+                const timeout = setTimeout(() => {
+                  corsImg.onload = null;
+                  corsImg.onerror = null;
+                  reject(new Error('Image load timeout'));
+                }, 10000);
+                
+                corsImg.onload = () => {
+                  clearTimeout(timeout);
+                  corsImg.onerror = null;
+                  resolve();
+                };
+                corsImg.onerror = () => {
+                  clearTimeout(timeout);
+                  corsImg.onload = null;
+                  reject(new Error('CORS image load failed'));
+                };
                 corsImg.src = imgSrc;
               });
               
