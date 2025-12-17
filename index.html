@@ -1526,6 +1526,12 @@
       async function idbOpen() {
         if (idbInstance) return idbInstance;
         
+        // Feature detect IndexedDB
+        if (!window.indexedDB) {
+          console.warn('IndexedDB not available in this browser');
+          return Promise.reject(new Error('IndexedDB not supported'));
+        }
+        
         return new Promise((resolve, reject) => {
           try {
             const request = indexedDB.open(IDB_NAME, IDB_VERSION);
@@ -2194,7 +2200,6 @@
 
       let photoCache={};
       let emojiCache={};
-      let photoObjectURLCache={}; // Track object URLs created from IndexedDB blobs for cleanup;
 
       let capsMode = tryGet(CAPS_KEY) || 'standard';
       applyCapsMode(capsMode,false);
@@ -2408,8 +2413,14 @@
       window.addEventListener('orientationchange', setTopbarHeight);
       setTimeout(setTopbarHeight,150);
 
-      preloadYearAssets(YEAR);
-      buildYear(YEAR);
+      // Initialize calendar - wrapped in try-catch for startup robustness
+      try {
+        preloadYearAssets(YEAR);
+        buildYear(YEAR);
+      } catch (error) {
+        console.error('Calendar initialization error (non-fatal):', error);
+        // App continues running even if calendar build fails
+      }
       
       // Background migration: Move localStorage photos to IndexedDB with thumbnails
       (async function migrateExistingPhotos(){
