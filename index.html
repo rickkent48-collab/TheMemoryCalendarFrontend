@@ -3187,14 +3187,14 @@
         deleteDataDialog.style.display='none';
       });
       deleteDataBackdrop.addEventListener('click',(e)=>{ if(e.target===deleteDataBackdrop){ deleteDataBackdrop.style.display='none'; deleteDataDialog.style.display='none'; } });
-      deleteConfirmBtn.addEventListener('click', ()=>{
+      deleteConfirmBtn.addEventListener('click', async ()=>{
         try{
           const keysToRemove=[];
           for(let i=0;i<localStorage.length;i++){
             const k=localStorage.key(i);
             if(!k) continue;
             if(/^photo-\d{4}-\d{2}-\d{2}$/.test(k) ||
-               /^(note|icon|word|song|movie|show)-\d{4}-\d{2}-\d{2}$/.test(k) ||
+               /^(note|icon|word|song|movie|show|notesText|notesIcon)-\d{4}-\d{2}-\d{2}$/.test(k) ||
                k===CART_KEY){
               keysToRemove.push(k);
             }
@@ -3202,6 +3202,26 @@
           keysToRemove.forEach(k=>localStorage.removeItem(k));
           photoCache={};
           emojiCache={};
+          
+          // Also clear IndexedDB photos
+          try{
+            const db = await idbOpen();
+            const transaction = db.transaction([IDB_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            await new Promise((resolve, reject) => {
+              const request = store.clear();
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(new Error('Failed to clear IndexedDB'));
+            });
+            
+            // Revoke all object URLs
+            Object.values(photoObjectURLCache).forEach(url => {
+              if(url) URL.revokeObjectURL(url);
+            });
+            photoObjectURLCache = {};
+          }catch(idbErr){
+            console.error('Failed to clear IndexedDB:', idbErr);
+          }
         }catch(e){}
         deleteDataBackdrop.style.display='none';
         deleteDataDialog.style.display='none';
