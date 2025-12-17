@@ -1446,8 +1446,8 @@
       const DELETE_MSG_BASE='all of your data will be deleted, would you like to continue?';
       const DELETE_TITLE_BASE='delete all data?';
 
-      const PRODUCT_DAY_BASE=`turn your daily memories into art with a high-quality polaroid-style 6x4" photo print`;
-      const PRODUCT_MONTH_BASE=`turn your monthly memories into art with a high-quality 30x30cm poster print`;
+      const PRODUCT_DAY_BASE=`bring your daily memories to life with a high-quality polaroid-style 6x4" photo print`;
+      const PRODUCT_MONTH_BASE=`bring your monthly memories to life with a high-quality 30x30cm poster print`;
 
       const PRICES={
         polaroid:{eur:'€2.99', gbp:'£2.99', usd:'$3.99', cad:'C$5.99', aud:'A$5.99'},
@@ -4576,7 +4576,7 @@
 
       function showThankYouPopup() {
         if (orderStatusMessage) {
-          orderStatusMessage.textContent = 'thank you for your order! every order is greatly appreciated. please contact thememorycalendar@gmail.com for questions or support';
+          orderStatusMessage.textContent = transformForDisplay('thank you for your order! every order is greatly appreciated. please contact thememorycalendar@gmail.com for questions or support', 'sentence');
         }
         if (orderStatusBackBtn) {
           orderStatusBackBtn.style.display = 'block';
