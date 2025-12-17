@@ -1507,6 +1507,233 @@
         });
       }
 
+      // ============================================================================
+      // IndexedDB for full-resolution photo storage
+      // ============================================================================
+      const IDB_NAME = 'memory-calendar';
+      const IDB_STORE_NAME = 'photos';
+      const IDB_VERSION = 1;
+      
+      let idbInstance = null;
+      
+      /**
+       * Open or create IndexedDB database
+       * @returns {Promise<IDBDatabase>}
+       */
+      async function idbOpen() {
+        if (idbInstance) return idbInstance;
+        
+        return new Promise((resolve, reject) => {
+          try {
+            const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+            
+            request.onerror = () => {
+              console.error('IndexedDB open error:', request.error);
+              reject(new Error('Failed to open IndexedDB'));
+            };
+            
+            request.onsuccess = () => {
+              idbInstance = request.result;
+              resolve(idbInstance);
+            };
+            
+            request.onupgradeneeded = (event) => {
+              const db = event.target.result;
+              
+              // Create object store if it doesn't exist
+              if (!db.objectStoreNames.contains(IDB_STORE_NAME)) {
+                db.createObjectStore(IDB_STORE_NAME, { keyPath: 'id' });
+              }
+            };
+          } catch (error) {
+            console.error('IndexedDB setup error:', error);
+            reject(error);
+          }
+        });
+      }
+      
+      /**
+       * Store a photo Blob in IndexedDB
+       * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
+       * @param {Blob} blob - Image Blob to store
+       * @returns {Promise<void>}
+       */
+      async function idbPutPhoto(dateKey, blob) {
+        try {
+          const db = await idbOpen();
+          
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([IDB_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            
+            const request = store.put({
+              id: dateKey,
+              blob: blob,
+              timestamp: Date.now()
+            });
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(new Error('Failed to store photo in IndexedDB'));
+          });
+        } catch (error) {
+          console.error('idbPutPhoto error:', error);
+          throw error;
+        }
+      }
+      
+      /**
+       * Retrieve a photo Blob from IndexedDB
+       * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
+       * @returns {Promise<Blob|null>}
+       */
+      async function idbGetPhoto(dateKey) {
+        try {
+          const db = await idbOpen();
+          
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([IDB_STORE_NAME], 'readonly');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            
+            const request = store.get(dateKey);
+            
+            request.onsuccess = () => {
+              const result = request.result;
+              resolve(result ? result.blob : null);
+            };
+            
+            request.onerror = () => {
+              console.error('idbGetPhoto error:', request.error);
+              resolve(null); // Return null on error instead of rejecting
+            };
+          });
+        } catch (error) {
+          console.error('idbGetPhoto error:', error);
+          return null;
+        }
+      }
+      
+      /**
+       * Delete a photo from IndexedDB
+       * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
+       * @returns {Promise<void>}
+       */
+      async function idbDeletePhoto(dateKey) {
+        try {
+          const db = await idbOpen();
+          
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([IDB_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            
+            const request = store.delete(dateKey);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(new Error('Failed to delete photo from IndexedDB'));
+          });
+        } catch (error) {
+          console.error('idbDeletePhoto error:', error);
+          throw error;
+        }
+      }
+      
+      // ============================================================================
+      // Preview compression utilities
+      // ============================================================================
+      const PREVIEW_MAX_DIMENSION = 1000; // Max width/height for preview
+      const PREVIEW_QUALITY = 0.8; // Preview compression quality
+      
+      /**
+       * Compress a data URL or Blob to a smaller preview
+       * @param {string|Blob} input - Data URL or Blob to compress
+       * @returns {Promise<string>} - Compressed data URL
+       */
+      async function compressToPreview(input) {
+        try {
+          // Convert input to an Image element
+          const img = new Image();
+          
+          if (typeof input === 'string') {
+            // Input is a data URL
+            img.src = input;
+          } else if (input instanceof Blob) {
+            // Input is a Blob - create object URL
+            const objectUrl = URL.createObjectURL(input);
+            img.src = objectUrl;
+          } else {
+            throw new Error('Invalid input type for compression');
+          }
+          
+          // Wait for image to load
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => reject(new Error('Failed to load image for compression'));
+          });
+          
+          // Revoke object URL if we created one
+          if (img.src.startsWith('blob:')) {
+            URL.revokeObjectURL(img.src);
+          }
+          
+          // Calculate scaled dimensions
+          const { width, height } = img;
+          const maxDim = Math.max(width, height);
+          
+          let targetWidth = width;
+          let targetHeight = height;
+          
+          if (maxDim > PREVIEW_MAX_DIMENSION) {
+            const scale = PREVIEW_MAX_DIMENSION / maxDim;
+            targetWidth = Math.round(width * scale);
+            targetHeight = Math.round(height * scale);
+          }
+          
+          // Create canvas for compression
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          
+          const ctx = canvas.getContext('2d', { alpha: false });
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          
+          // Draw scaled image
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+          
+          // Export as WebP or JPEG
+          if (supportsWebP()) {
+            return canvas.toDataURL('image/webp', PREVIEW_QUALITY);
+          } else {
+            return canvas.toDataURL('image/jpeg', PREVIEW_QUALITY);
+          }
+        } catch (error) {
+          console.error('Preview compression error:', error);
+          // Return original input if compression fails
+          if (typeof input === 'string') {
+            return input;
+          }
+          throw error;
+        }
+      }
+      
+      /**
+       * Convert a data URL to a Blob
+       * @param {string} dataUrl - Data URL to convert
+       * @returns {Blob}
+       */
+      function dataUrlToBlob(dataUrl) {
+        const parts = dataUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)[1];
+        const bstr = atob(parts[1]);
+        const n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        
+        for (let i = 0; i < n; i++) {
+          u8arr[i] = bstr.charCodeAt(i);
+        }
+        
+        return new Blob([u8arr], { type: mime });
+      }
+
       let currencyCode = tryGet(CURRENCY_KEY) || 'eur';
 
       function loadCartItems(){
@@ -1846,6 +2073,7 @@
 
       let photoCache={};
       let emojiCache={};
+      let photoObjectURLCache={}; // Track object URLs created from IndexedDB blobs for cleanup;
 
       let capsMode = tryGet(CAPS_KEY) || 'standard';
       applyCapsMode(capsMode,false);
@@ -2061,6 +2289,63 @@
 
       preloadYearAssets(YEAR);
       buildYear(YEAR);
+      
+      // Optional migration: Move large localStorage photos to IndexedDB
+      (async function migrateExistingPhotos(){
+        try{
+          const MIGRATION_SIZE_THRESHOLD = 50000; // ~50KB - migrate anything larger
+          const migrationPromises = [];
+          
+          for(let i=0; i<localStorage.length; i++){
+            const key = localStorage.key(i);
+            if(!key || !key.startsWith('photo-')) continue;
+            
+            try{
+              const dataUrl = localStorage.getItem(key);
+              if(!dataUrl || !dataUrl.startsWith('data:')) continue;
+              
+              // Check if it's a large data URL (needs migration)
+              if(dataUrl.length > MIGRATION_SIZE_THRESHOLD){
+                // Convert to Blob and store in IndexedDB
+                const blob = dataUrlToBlob(dataUrl);
+                
+                // Store in IndexedDB (async, non-blocking)
+                const migrationTask = (async () => {
+                  try{
+                    await idbPutPhoto(key, blob);
+                    
+                    // Generate compressed preview
+                    const preview = await compressToPreview(blob);
+                    
+                    // Replace large data URL with small preview
+                    localStorage.setItem(key, preview);
+                    
+                    // Update cache if exists
+                    if(photoCache[key]){
+                      photoCache[key] = preview;
+                    }
+                  }catch(err){
+                    console.warn('Migration failed for', key, err);
+                  }
+                })();
+                
+                migrationPromises.push(migrationTask);
+              }
+            }catch(err){
+              console.warn('Error checking photo for migration:', key, err);
+            }
+          }
+          
+          // Wait for all migrations to complete in background
+          if(migrationPromises.length > 0){
+            console.info('Migrating', migrationPromises.length, 'photos to IndexedDB...');
+            await Promise.all(migrationPromises);
+            console.info('Migration complete');
+          }
+        }catch(err){
+          console.error('Photo migration error (non-fatal):', err);
+        }
+      })();
 
       function preloadYearAssets(year){
         photoCache={}; emojiCache={};
@@ -2089,6 +2374,36 @@
           if(v){ photoCache[key]=v; return v; }
         }
         return null;
+      }
+      
+      /**
+       * Get photo for day view - tries IndexedDB first (full resolution), then falls back to localStorage (preview)
+       * @param {string} key - Photo key
+       * @param {boolean} preferFullResolution - If true, try IndexedDB first for full resolution
+       * @returns {Promise<string|null>} - Data URL or object URL
+       */
+      async function getSavedPhotoForDayView(key, preferFullResolution = true){
+        if(preferFullResolution){
+          try{
+            // Try IndexedDB first for full resolution
+            const blob = await idbGetPhoto(key);
+            if(blob){
+              // Revoke old object URL if exists
+              if(photoObjectURLCache[key]){
+                URL.revokeObjectURL(photoObjectURLCache[key]);
+              }
+              // Create new object URL
+              const objectUrl = URL.createObjectURL(blob);
+              photoObjectURLCache[key] = objectUrl;
+              return objectUrl;
+            }
+          }catch(err){
+            console.error('Error loading photo from IndexedDB:', err);
+          }
+        }
+        
+        // Fallback to localStorage preview
+        return getSavedPhoto(key);
       }
 
       function monthName(year,monthIndex){
@@ -2301,21 +2616,33 @@
         return ['note-','icon-','word-','song-','movie-','show-','notesText-','notesIcon-'].some(p=> (tryGet(p+base)||'').trim().length);
       }
 
-      function loadPhoto(fallback){
-        const saved=getSavedPhoto(selectedDateKey);
-        let candidate=draftPhotoData || saved;
-        if(!candidate && fallback){
+      async function loadPhoto(fallback){
+        // First check if we have a draft photo
+        if(draftPhotoData || draftPhotoObjectURL){
+          applyPhoto(draftPhotoObjectURL || draftPhotoData);
+          return;
+        }
+        
+        // Try to load from IndexedDB (full resolution) for day view
+        const fullResPhoto = await getSavedPhotoForDayView(selectedDateKey, true);
+        if(fullResPhoto){
+          applyPhoto(fullResPhoto);
+          return;
+        }
+        
+        // Fallback to calendar cell if requested
+        if(fallback){
           const cellImg=document.querySelector(`#calPhoto .day[data-date="${selectedDateKey}"] img`);
-          if(cellImg && cellImg.src) candidate=cellImg.src;
+          if(cellImg && cellImg.src){
+            applyPhoto(cellImg.src);
+            return;
+          }
         }
-        applyPhoto(candidate);
-        if(!candidate){
-          requestAnimationFrame(()=>{
-            const again=getSavedPhoto(selectedDateKey);
-            if(again) applyPhoto(again);
-          });
-        }
+        
+        // No photo found
+        applyPhoto(null);
       }
+      
       function applyPhoto(src){
         if(src){
           bigPreviewImg.src=src;
@@ -2536,35 +2863,80 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
-        // Handle photo persistence
+        // Handle photo persistence with IndexedDB for full resolution + localStorage for preview
+        let photoBlob = null;
         let photoToSave = draftPhotoData;
         
-        // If draftPhotoData is empty but we have a preview image, convert it to data URL
-        if(!photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
+        // First, try to get Blob from draftPhotoObjectURL (if available from framing)
+        if(draftPhotoObjectURL && draftPhotoObjectURL.startsWith('blob:')){
           try{
-            const canvas = document.createElement('canvas');
-            canvas.width = bigPreviewImg.naturalWidth || bigPreviewImg.width;
-            canvas.height = bigPreviewImg.naturalHeight || bigPreviewImg.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(bigPreviewImg, 0, 0);
-            photoToSave = canvas.toDataURL('image/jpeg', EXPORT_QUALITY);
+            const response = await fetch(draftPhotoObjectURL);
+            photoBlob = await response.blob();
           }catch(err){
-            console.error('Failed to convert preview to data URL:', err);
+            console.error('Failed to fetch blob from object URL:', err);
+          }
+        }
+        
+        // If no blob yet and we have draftPhotoData, convert it to Blob
+        if(!photoBlob && photoToSave){
+          try{
+            photoBlob = dataUrlToBlob(photoToSave);
+          }catch(err){
+            console.error('Failed to convert data URL to blob:', err);
+          }
+        }
+        
+        // If still no blob/photo and we have a preview image, create from canvas
+        if(!photoBlob && !photoToSave && bigPreviewImg.src && bigPreviewImg.style.display !== 'none'){
+          try{
+            const S = bigPreviewImg.naturalWidth || bigPreviewImg.width;
+            const exportScale = EXPORT_SCALE_MULTIPLIER;
+            const exportSize = S * exportScale;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = exportSize;
+            canvas.height = exportSize;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(bigPreviewImg, 0, 0, exportSize, exportSize);
+            
+            photoBlob = await canvasToBlob(canvas, EXPORT_QUALITY);
+          }catch(err){
+            console.error('Failed to create blob from preview:', err);
             showToast('photo save failed');
           }
         }
         
-        if(photoToSave){
-          const compressed=await compressDataUrl(photoToSave);
-          if(trySet(selectedDateKey,compressed)){
-            photoCache[selectedDateKey]=compressed;
-            const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
-            if(cell){
-              const img=cell.querySelector('img');
-              if(img){ img.src=compressed; img.style.display='block'; }
-              cell.classList.add('has-photo');
+        // Now persist the photo
+        if(photoBlob){
+          try{
+            // 1. Store full-resolution Blob to IndexedDB
+            await idbPutPhoto(selectedDateKey, photoBlob);
+            
+            // 2. Generate compressed preview for localStorage
+            const previewDataUrl = await compressToPreview(photoBlob);
+            
+            // 3. Save preview to localStorage
+            if(trySet(selectedDateKey, previewDataUrl)){
+              photoCache[selectedDateKey] = previewDataUrl;
+              
+              // 4. Update calendar grid with preview
+              const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
+              if(cell){
+                const img=cell.querySelector('img');
+                if(img){ 
+                  img.src=previewDataUrl; 
+                  img.style.display='block'; 
+                }
+                cell.classList.add('has-photo');
+              }
             }
+          }catch(err){
+            console.error('Failed to save photo:', err);
+            showToast('photo save failed');
           }
+          
           draftPhotoData=null;
           
           // Clean up object URL if it exists
@@ -4398,7 +4770,10 @@
         applyCapsToSentenceParagraphs();
       }
 
-      async function compressDataUrl(dataUrl){ return dataUrl; }
+      // Replaced with actual compression - see compressToPreview() above
+      async function compressDataUrl(dataUrl){ 
+        return compressToPreview(dataUrl); 
+      }
 
       /*
        * ============================================================================
