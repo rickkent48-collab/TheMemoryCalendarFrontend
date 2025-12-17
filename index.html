@@ -1516,6 +1516,9 @@
       
       let idbInstance = null;
       
+      // Object URL cache for preventing memory leaks
+      const photoObjectURLCache = {};
+      
       /**
        * Open or create IndexedDB database
        * @returns {Promise<IDBDatabase>}
@@ -1582,6 +1585,37 @@
       }
       
       /**
+       * Store a thumbnail Blob in IndexedDB
+       * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
+       * @param {Blob} blob - Thumbnail Blob to store
+       * @returns {Promise<void>}
+       */
+      async function idbPutThumbnail(dateKey, blob) {
+        // Store thumbnail with 'thumb-' prefix
+        const thumbKey = `thumb-${dateKey}`;
+        try {
+          const db = await idbOpen();
+          
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([IDB_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            
+            const request = store.put({
+              id: thumbKey,
+              blob: blob,
+              timestamp: Date.now()
+            });
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(new Error('Failed to store thumbnail in IndexedDB'));
+          });
+        } catch (error) {
+          console.error('idbPutThumbnail error:', error);
+          throw error;
+        }
+      }
+      
+      /**
        * Retrieve a photo Blob from IndexedDB
        * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
        * @returns {Promise<Blob|null>}
@@ -1613,6 +1647,38 @@
       }
       
       /**
+       * Retrieve a thumbnail Blob from IndexedDB
+       * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
+       * @returns {Promise<Blob|null>}
+       */
+      async function idbGetThumbnail(dateKey) {
+        const thumbKey = `thumb-${dateKey}`;
+        try {
+          const db = await idbOpen();
+          
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([IDB_STORE_NAME], 'readonly');
+            const store = transaction.objectStore(IDB_STORE_NAME);
+            
+            const request = store.get(thumbKey);
+            
+            request.onsuccess = () => {
+              const result = request.result;
+              resolve(result ? result.blob : null);
+            };
+            
+            request.onerror = () => {
+              console.error('idbGetThumbnail error:', request.error);
+              resolve(null);
+            };
+          });
+        } catch (error) {
+          console.error('idbGetThumbnail error:', error);
+          return null;
+        }
+      }
+      
+      /**
        * Delete a photo from IndexedDB
        * @param {string} dateKey - Date key (e.g., 'photo-2025-01-15')
        * @returns {Promise<void>}
@@ -1625,10 +1691,12 @@
             const transaction = db.transaction([IDB_STORE_NAME], 'readwrite');
             const store = transaction.objectStore(IDB_STORE_NAME);
             
-            const request = store.delete(dateKey);
+            // Delete both full and thumbnail
+            const deletePhoto = store.delete(dateKey);
+            const deleteThumbnail = store.delete(`thumb-${dateKey}`);
             
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(new Error('Failed to delete photo from IndexedDB'));
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(new Error('Failed to delete photo from IndexedDB'));
           });
         } catch (error) {
           console.error('idbDeletePhoto error:', error);
@@ -1637,17 +1705,24 @@
       }
       
       // ============================================================================
-      // Preview compression utilities
+      // Photo compression utilities - aligned with requirements
       // ============================================================================
-      const PREVIEW_MAX_DIMENSION = 1000; // Max width/height for preview
-      const PREVIEW_QUALITY = 0.8; // Preview compression quality
+      // Full image compression: max 1600px, quality 0.82
+      const FULL_MAX_DIMENSION = 1600;
+      const FULL_QUALITY = 0.82;
+      
+      // Thumbnail compression: max 512px, quality 0.70 
+      const THUMB_MAX_DIMENSION = 512;
+      const THUMB_QUALITY = 0.70;
       
       /**
-       * Compress a data URL or Blob to a smaller preview
+       * Compress an image to specific dimensions and quality
        * @param {string|Blob} input - Data URL or Blob to compress
-       * @returns {Promise<string>} - Compressed data URL
+       * @param {number} maxDimension - Maximum width/height
+       * @param {number} quality - Compression quality (0-1)
+       * @returns {Promise<Blob>} - Compressed Blob
        */
-      async function compressToPreview(input) {
+      async function compressImage(input, maxDimension, quality) {
         try {
           // Convert input to an Image element
           const img = new Image();
@@ -1681,9 +1756,8 @@
           let targetWidth = width;
           let targetHeight = height;
           
-          if (maxDim > PREVIEW_MAX_DIMENSION) {
-            const scale = PREVIEW_MAX_DIMENSION / maxDim;
-            // Ensure minimum dimensions of 1px to prevent zero-size canvas
+          if (maxDim > maxDimension) {
+            const scale = maxDimension / maxDim;
             targetWidth = Math.max(1, Math.round(width * scale));
             targetHeight = Math.max(1, Math.round(height * scale));
           }
@@ -1700,12 +1774,49 @@
           // Draw scaled image
           ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
           
-          // Export as WebP or JPEG
-          if (supportsWebP()) {
-            return canvas.toDataURL('image/webp', PREVIEW_QUALITY);
-          } else {
-            return canvas.toDataURL('image/jpeg', PREVIEW_QUALITY);
-          }
+          // Export as Blob with WebP or JPEG
+          return await canvasToBlob(canvas, quality);
+        } catch (error) {
+          console.error('Image compression error:', error);
+          throw error;
+        }
+      }
+      
+      /**
+       * Compress to full resolution (max 1600px @ 0.82 quality)
+       * @param {string|Blob} input - Data URL or Blob
+       * @returns {Promise<Blob>}
+       */
+      async function compressToFull(input) {
+        return await compressImage(input, FULL_MAX_DIMENSION, FULL_QUALITY);
+      }
+      
+      /**
+       * Compress to thumbnail (max 512px @ 0.70 quality)
+       * @param {string|Blob} input - Data URL or Blob
+       * @returns {Promise<Blob>}
+       */
+      async function compressToThumbnail(input) {
+        return await compressImage(input, THUMB_MAX_DIMENSION, THUMB_QUALITY);
+      }
+      
+      /**
+       * Compress to preview - alias for thumbnail (backward compatibility)
+       * @param {string|Blob} input - Data URL or Blob to compress
+       * @returns {Promise<string>} - Compressed data URL
+       */
+      async function compressToPreview(input) {
+        try {
+          // Use thumbnail compression for preview
+          const blob = await compressToThumbnail(input);
+          
+          // Convert blob to data URL
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+            reader.readAsDataURL(blob);
+          });
         } catch (error) {
           console.error('Preview compression error:', error);
           // Return original input if compression fails
@@ -1817,8 +1928,8 @@
             ctx.fillRect(0,0,widthCSS,heightCSS);
             const imgX=border, imgY=border;
             const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
-            // Check if src is a valid data URL or http(s) URL (not empty and not the page URL)
-            const hasValidImage = src && (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) && storePolaroidImg.style.display !== 'none';
+            // Check if src is a valid data URL, blob URL, or http(s) URL (not empty and not the page URL)
+            const hasValidImage = src && (src.startsWith('data:') || src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')) && storePolaroidImg.style.display !== 'none';
             if(hasValidImage){
               const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
               const iw=im.naturalWidth||im.width;
@@ -2300,69 +2411,88 @@
       preloadYearAssets(YEAR);
       buildYear(YEAR);
       
-      // Optional migration: Move large localStorage photos to IndexedDB
+      // Background migration: Move localStorage photos to IndexedDB with thumbnails
       (async function migrateExistingPhotos(){
         try{
-          // Calculate actual byte size by accounting for base64 overhead
-          // Base64 has ~33% overhead, so actual size ≈ (length - header) * 0.75
-          const MIGRATION_SIZE_THRESHOLD = 66667; // ~50KB decoded = ~66KB base64 string
           const migrationPromises = [];
+          const keysToMigrate = [];
           
+          // Collect all photo keys from localStorage
           for(let i=0; i<localStorage.length; i++){
             const key = localStorage.key(i);
             if(!key || !key.startsWith('photo-')) continue;
-            
+            keysToMigrate.push(key);
+          }
+          
+          if(keysToMigrate.length === 0){
+            console.info('[Migration] No photos to migrate');
+            return;
+          }
+          
+          console.info(`[Migration] Starting migration of ${keysToMigrate.length} photos to IndexedDB...`);
+          
+          for(const key of keysToMigrate){
             try{
               const dataUrl = localStorage.getItem(key);
               if(!dataUrl || !dataUrl.startsWith('data:')) continue;
               
-              // Calculate approximate decoded byte size
-              const commaIndex = dataUrl.indexOf(',');
-              if(commaIndex === -1) continue;
-              
-              const base64Length = dataUrl.length - commaIndex - 1;
-              const approximateByteSize = Math.ceil(base64Length * 0.75);
-              
-              // Check if it's a large data URL (needs migration)
-              if(approximateByteSize > 50000){ // 50KB decoded
-                // Convert to Blob and store in IndexedDB
-                const blob = dataUrlToBlob(dataUrl);
-                
-                // Store in IndexedDB (async, non-blocking)
-                const migrationTask = (async () => {
-                  try{
-                    await idbPutPhoto(key, blob);
-                    
-                    // Generate compressed preview
-                    const preview = await compressToPreview(blob);
-                    
-                    // Replace large data URL with small preview
-                    localStorage.setItem(key, preview);
-                    
-                    // Update cache if exists
-                    if(photoCache[key]){
-                      photoCache[key] = preview;
-                    }
-                  }catch(err){
-                    console.warn('Migration failed for', key, err);
+              // Migrate all data URLs to IndexedDB (non-blocking)
+              const migrationTask = (async () => {
+                try{
+                  // Convert to Blob
+                  const blob = dataUrlToBlob(dataUrl);
+                  
+                  // Compress to full resolution (max 1600px @ 0.82)
+                  const fullBlob = await compressToFull(blob);
+                  
+                  // Compress to thumbnail (max 512px @ 0.70)
+                  const thumbnailBlob = await compressToThumbnail(blob);
+                  
+                  // Store full-resolution Blob to IndexedDB
+                  await idbPutPhoto(key, fullBlob);
+                  
+                  // Store thumbnail Blob to IndexedDB
+                  await idbPutThumbnail(key, thumbnailBlob);
+                  
+                  // Remove image data from localStorage (keep only metadata)
+                  localStorage.removeItem(key);
+                  
+                  // Update cache with thumbnail object URL
+                  if(photoObjectURLCache[key]){
+                    URL.revokeObjectURL(photoObjectURLCache[key]);
                   }
-                })();
-                
-                migrationPromises.push(migrationTask);
-              }
+                  const thumbObjectURL = URL.createObjectURL(thumbnailBlob);
+                  photoCache[key] = thumbObjectURL;
+                  photoObjectURLCache[key] = thumbObjectURL;
+                  
+                  // Update calendar grid cell if visible
+                  const cell = calPhoto.querySelector(`.day[data-date="${key}"]`);
+                  if(cell){
+                    const img = cell.querySelector('img');
+                    if(img){
+                      img.src = thumbObjectURL;
+                      img.style.display = 'block';
+                    }
+                    cell.classList.add('has-photo');
+                  }
+                }catch(err){
+                  console.warn('[Migration] Failed for', key, err);
+                }
+              })();
+              
+              migrationPromises.push(migrationTask);
             }catch(err){
-              console.warn('Error checking photo for migration:', key, err);
+              console.warn('[Migration] Error checking photo:', key, err);
             }
           }
           
           // Wait for all migrations to complete in background
           if(migrationPromises.length > 0){
-            console.info('Migrating', migrationPromises.length, 'photos to IndexedDB...');
             await Promise.all(migrationPromises);
-            console.info('Migration complete');
+            console.info(`[Migration] Complete - migrated ${migrationPromises.length} photos`);
           }
         }catch(err){
-          console.error('Photo migration error (non-fatal):', err);
+          console.error('[Migration] Error (non-fatal):', err);
         }
       })();
 
@@ -2382,24 +2512,74 @@
         });
       }
 
+      /**
+       * Get photo for calendar grid - returns thumbnail from IndexedDB as object URL
+       * Falls back to localStorage for legacy data
+       * @param {string} key - Photo key
+       * @returns {string|null} - Object URL or data URL
+       */
       function getSavedPhoto(key){
+        // Return cached object URL if available
         if(photoCache[key]) return photoCache[key];
+        
+        // Check localStorage for legacy data URL (will be migrated in background)
         let v=tryGet(key);
-        if(v){ photoCache[key]=v; return v; }
+        if(v){ 
+          photoCache[key]=v; 
+          return v; 
+        }
+        
+        // Try alternate key format
         const m=key.match(/^photo-(\d{4})-(\d{2})-(\d{2})$/);
         if(m){
           const alt=`photo-${m[1]}-${Number(m[2])}-${Number(m[3])}`;
           v=tryGet(alt);
-          if(v){ photoCache[key]=v; return v; }
+          if(v){ 
+            photoCache[key]=v; 
+            return v; 
+          }
         }
+        
         return null;
       }
       
       /**
-       * Get photo for day view - tries IndexedDB first (full resolution), then falls back to localStorage (preview)
+       * Async version of getSavedPhoto that loads thumbnail from IndexedDB
+       * Used by calendar grid to display thumbnails
+       * @param {string} key - Photo key
+       * @returns {Promise<string|null>} - Object URL or data URL
+       */
+      async function getSavedPhotoThumbnail(key){
+        // Return cached value if available
+        if(photoCache[key]) return photoCache[key];
+        
+        try{
+          // Try IndexedDB thumbnail first
+          const thumbBlob = await idbGetThumbnail(key);
+          if(thumbBlob){
+            // Revoke old object URL if exists
+            if(photoObjectURLCache[key]){
+              URL.revokeObjectURL(photoObjectURLCache[key]);
+            }
+            // Create new object URL
+            const objectUrl = URL.createObjectURL(thumbBlob);
+            photoCache[key] = objectUrl;
+            photoObjectURLCache[key] = objectUrl;
+            return objectUrl;
+          }
+        }catch(err){
+          console.error('Error loading thumbnail from IndexedDB:', err);
+        }
+        
+        // Fallback to localStorage or sync getSavedPhoto
+        return getSavedPhoto(key);
+      }
+      
+      /**
+       * Get photo for day view - tries IndexedDB first (full resolution), then falls back to thumbnail
        * @param {string} key - Photo key
        * @param {boolean} preferFullResolution - If true, try IndexedDB first for full resolution
-       * @returns {Promise<string|null>} - Data URL or object URL
+       * @returns {Promise<string|null>} - Object URL or data URL
        */
       async function getSavedPhotoForDayView(key, preferFullResolution = true){
         if(preferFullResolution){
@@ -2421,8 +2601,8 @@
           }
         }
         
-        // Fallback to localStorage preview
-        return getSavedPhoto(key);
+        // Fallback to thumbnail
+        return await getSavedPhotoThumbnail(key);
       }
 
       function monthName(year,monthIndex){
@@ -2459,13 +2639,42 @@
             cell.dataset.date=key; cell.dataset.y=year; cell.dataset.m=m+1; cell.dataset.d=d;
             const num=document.createElement('div'); num.className='num'; num.textContent=d; cell.appendChild(num);
             const img=document.createElement('img'); img.alt=`${h2.textContent} ${d} photo`; img.loading='eager'; img.decoding='sync'; cell.appendChild(img);
+            
+            // Try to load synchronously from cache first
             const saved=getSavedPhoto(key);
-            if(saved){ img.src=saved; img.style.display='block'; cell.classList.add('has-photo'); }
+            if(saved){ 
+              img.src=saved; 
+              img.style.display='block'; 
+              cell.classList.add('has-photo'); 
+            } else {
+              // Load thumbnail from IndexedDB asynchronously
+              loadThumbnailForCell(key, img, cell);
+            }
+            
             grid.appendChild(cell);
           }
           const tail=grid.children.length%7;
           if(tail!==0){ for(let i=0;i<7-tail;i++){ const pad=document.createElement('div'); pad.className='pad'; grid.appendChild(pad); } }
           calPhoto.appendChild(section);
+        }
+      }
+      
+      /**
+       * Async helper to load thumbnail for a calendar cell
+       * @param {string} key - Photo key
+       * @param {HTMLImageElement} img - Image element
+       * @param {HTMLElement} cell - Cell element
+       */
+      async function loadThumbnailForCell(key, img, cell){
+        try{
+          const thumbUrl = await getSavedPhotoThumbnail(key);
+          if(thumbUrl){
+            img.src=thumbUrl;
+            img.style.display='block';
+            cell.classList.add('has-photo');
+          }
+        }catch(err){
+          console.error('Error loading thumbnail for cell:', key, err);
         }
       }
 
@@ -2882,7 +3091,7 @@
         saveDayBtn.disabled=true;
         const base=baseDateKey(selectedDateKey);
         
-        // Handle photo persistence with IndexedDB for full resolution + localStorage for preview
+        // Handle photo persistence with IndexedDB for full + thumbnail
         let photoBlob = null;
         let photoToSave = draftPhotoData;
         
@@ -2930,26 +3139,38 @@
         // Now persist the photo
         if(photoBlob){
           try{
-            // 1. Store full-resolution Blob to IndexedDB
-            await idbPutPhoto(selectedDateKey, photoBlob);
+            // 1. Compress to full resolution (max 1600px @ 0.82)
+            const fullBlob = await compressToFull(photoBlob);
             
-            // 2. Generate compressed preview for localStorage
-            const previewDataUrl = await compressToPreview(photoBlob);
+            // 2. Compress to thumbnail (max 512px @ 0.70)
+            const thumbnailBlob = await compressToThumbnail(photoBlob);
             
-            // 3. Save preview to localStorage
-            if(trySet(selectedDateKey, previewDataUrl)){
-              photoCache[selectedDateKey] = previewDataUrl;
-              
-              // 4. Update calendar grid with preview
-              const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
-              if(cell){
-                const img=cell.querySelector('img');
-                if(img){ 
-                  img.src=previewDataUrl; 
-                  img.style.display='block'; 
-                }
-                cell.classList.add('has-photo');
+            // 3. Store full-resolution Blob to IndexedDB
+            await idbPutPhoto(selectedDateKey, fullBlob);
+            
+            // 4. Store thumbnail Blob to IndexedDB
+            await idbPutThumbnail(selectedDateKey, thumbnailBlob);
+            
+            // 5. Remove photo data from localStorage (keep only metadata flag)
+            localStorage.removeItem(selectedDateKey);
+            
+            // 6. Update photoCache with object URL from thumbnail for grid display
+            if(photoObjectURLCache[selectedDateKey]){
+              URL.revokeObjectURL(photoObjectURLCache[selectedDateKey]);
+            }
+            const thumbObjectURL = URL.createObjectURL(thumbnailBlob);
+            photoCache[selectedDateKey] = thumbObjectURL;
+            photoObjectURLCache[selectedDateKey] = thumbObjectURL;
+            
+            // 7. Update calendar grid with thumbnail
+            const cell=calPhoto.querySelector(`.day[data-date="${selectedDateKey}"]`);
+            if(cell){
+              const img=cell.querySelector('img');
+              if(img){ 
+                img.src=thumbObjectURL; 
+                img.style.display='block'; 
               }
+              cell.classList.add('has-photo');
             }
           }catch(err){
             console.error('Failed to save photo:', err);
@@ -3927,9 +4148,9 @@
         });
       }
 
-      function openStorePolaroidFS(year,month,day){
+      async function openStorePolaroidFS(year,month,day){
         closeStoreDateFS();
-        buildStorePolaroid(year,month,day);
+        await buildStorePolaroid(year,month,day);
         storePolaroidBackdrop.style.display='block';
         storePolaroidFS.style.display='flex';
         resetScreenScroll(storePolaroidFS);
@@ -3940,10 +4161,13 @@
         storePolaroidFS.style.display='none';
       }
 
-      function buildStorePolaroid(year,month,day){
+      async function buildStorePolaroid(year,month,day){
         storePolaroidTitle.textContent='daily polaroid';
         const dateKey=makeKey(year,month,day);
-        const photo=getSavedPhoto(dateKey);
+        
+        // Load photo from IndexedDB (prefer full, fallback to thumbnail)
+        const photo = await getSavedPhotoForDayView(dateKey, true);
+        
         const base=baseDateKey(dateKey);
         const note=(tryGet(`note-${base}`)||'').trim();
         const icon=(tryGet(`icon-${base}`)||'').trim();
@@ -3998,9 +4222,9 @@
         updateCurrencyUI();
       }
 
-      function openStorePosterFS(year,month){
+      async function openStorePosterFS(year,month){
         closeStoreMonthFS();
-        buildStorePoster(year,month);
+        await buildStorePoster(year,month);
         storePosterBackdrop.style.display='block';
         storePosterFS.style.display='flex';
         resetScreenScroll(storePosterFS);
@@ -4010,7 +4234,7 @@
         storePosterFS.style.display='none';
       }
 
-      function buildStorePoster(year,month){
+      async function buildStorePoster(year,month){
         storePosterTitle.textContent='monthly poster';
 
         document.getElementById('storePosterImgWrap').innerHTML='';
@@ -4034,6 +4258,9 @@
           for(let i=0;i<mondayIndex;i++){
             const pad=document.createElement('div'); pad.className='pad'; grid.appendChild(pad);
           }
+          
+          // Load thumbnails asynchronously for each day
+          const loadPromises = [];
           for(let d=1;d<=days;d++){
             const key=makeKey(year,month,d);
             const cell=document.createElement('div');
@@ -4041,10 +4268,35 @@
             cell.dataset.date=key; cell.dataset.y=year; cell.dataset.m=month; cell.dataset.d=d;
             const num=document.createElement('div'); num.className='num'; num.textContent=d; cell.appendChild(num);
             const img=document.createElement('img'); img.alt=`${h2.textContent} ${d} photo`; img.loading='eager'; img.decoding='sync'; cell.appendChild(img);
+            
+            // Try sync first
             const saved=getSavedPhoto(key);
-            if(saved){ img.src=saved; img.style.display='block'; cell.classList.add('has-photo'); }
+            if(saved){ 
+              img.src=saved; 
+              img.style.display='block'; 
+              cell.classList.add('has-photo'); 
+            } else {
+              // Load async from IndexedDB
+              loadPromises.push(
+                (async () => {
+                  const thumbUrl = await getSavedPhotoThumbnail(key);
+                  if(thumbUrl){
+                    img.src=thumbUrl;
+                    img.style.display='block';
+                    cell.classList.add('has-photo');
+                  }
+                })()
+              );
+            }
+            
             grid.appendChild(cell);
           }
+          
+          // Wait for all thumbnails to load
+          if(loadPromises.length > 0){
+            await Promise.all(loadPromises);
+          }
+          
           contentSection=section;
         }
         const headerEl=contentSection.querySelector('h2');
