@@ -1683,8 +1683,9 @@
           
           if (maxDim > PREVIEW_MAX_DIMENSION) {
             const scale = PREVIEW_MAX_DIMENSION / maxDim;
-            targetWidth = Math.round(width * scale);
-            targetHeight = Math.round(height * scale);
+            // Ensure minimum dimensions of 1px to prevent zero-size canvas
+            targetWidth = Math.max(1, Math.round(width * scale));
+            targetHeight = Math.max(1, Math.round(height * scale));
           }
           
           // Create canvas for compression
@@ -1722,7 +1723,16 @@
        */
       function dataUrlToBlob(dataUrl) {
         const parts = dataUrl.split(',');
-        const mime = parts[0].match(/:(.*?);/)[1];
+        if (parts.length < 2) {
+          throw new Error('Invalid data URL format: missing comma separator');
+        }
+        
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        if (!mimeMatch) {
+          throw new Error('Invalid data URL format: missing MIME type');
+        }
+        const mime = mimeMatch[1];
+        
         const bstr = atob(parts[1]);
         const n = bstr.length;
         const u8arr = new Uint8Array(n);
@@ -2293,7 +2303,9 @@
       // Optional migration: Move large localStorage photos to IndexedDB
       (async function migrateExistingPhotos(){
         try{
-          const MIGRATION_SIZE_THRESHOLD = 50000; // ~50KB - migrate anything larger
+          // Calculate actual byte size by accounting for base64 overhead
+          // Base64 has ~33% overhead, so actual size ≈ (length - header) * 0.75
+          const MIGRATION_SIZE_THRESHOLD = 66667; // ~50KB decoded = ~66KB base64 string
           const migrationPromises = [];
           
           for(let i=0; i<localStorage.length; i++){
@@ -2304,8 +2316,15 @@
               const dataUrl = localStorage.getItem(key);
               if(!dataUrl || !dataUrl.startsWith('data:')) continue;
               
+              // Calculate approximate decoded byte size
+              const commaIndex = dataUrl.indexOf(',');
+              if(commaIndex === -1) continue;
+              
+              const base64Length = dataUrl.length - commaIndex - 1;
+              const approximateByteSize = Math.ceil(base64Length * 0.75);
+              
               // Check if it's a large data URL (needs migration)
-              if(dataUrl.length > MIGRATION_SIZE_THRESHOLD){
+              if(approximateByteSize > 50000){ // 50KB decoded
                 // Convert to Blob and store in IndexedDB
                 const blob = dataUrlToBlob(dataUrl);
                 
