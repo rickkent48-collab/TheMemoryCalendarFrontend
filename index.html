@@ -1928,8 +1928,8 @@
             ctx.fillRect(0,0,widthCSS,heightCSS);
             const imgX=border, imgY=border;
             const src = storePolaroidImg && storePolaroidImg.src ? storePolaroidImg.src : '';
-            // Check if src is a valid data URL or http(s) URL (not empty and not the page URL)
-            const hasValidImage = src && (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) && storePolaroidImg.style.display !== 'none';
+            // Check if src is a valid data URL, blob URL, or http(s) URL (not empty and not the page URL)
+            const hasValidImage = src && (src.startsWith('data:') || src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')) && storePolaroidImg.style.display !== 'none';
             if(hasValidImage){
               const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
               const iw=im.naturalWidth||im.width;
