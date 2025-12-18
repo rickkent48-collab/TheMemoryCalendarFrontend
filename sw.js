@@ -41,7 +41,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // Exclude Stripe and external checkout endpoints from caching
-  if (url.hostname.includes('stripe.com') || 
+  // Use proper domain checking to prevent subdomain bypass
+  if (url.hostname === 'stripe.com' || 
+      url.hostname.endsWith('.stripe.com') ||
       url.pathname.includes('/api/checkout') ||
       url.origin !== self.location.origin) {
     return; // Let the browser handle these normally
