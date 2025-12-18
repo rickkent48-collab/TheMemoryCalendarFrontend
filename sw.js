@@ -68,10 +68,15 @@ self.addEventListener('fetch', (event) => {
               const fetchPromise = fetch(request)
                 .then((networkResponse) => {
                   // Update cache with fresh response
-                  cache.put(request, networkResponse.clone());
+                  if (networkResponse && networkResponse.ok) {
+                    cache.put(request, networkResponse.clone());
+                  }
                   return networkResponse;
                 })
-                .catch(() => cachedResponse); // Fallback to cached on network error
+                .catch(() => {
+                  // Network failed - return cached response or null
+                  return cachedResponse || null;
+                });
 
               // Return cached response immediately if available, otherwise wait for network
               return cachedResponse || fetchPromise;
@@ -88,7 +93,13 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           return cachedResponse;
         }
-        return fetch(request);
+        return fetch(request).catch(() => {
+          // Network failed and no cache - return a basic error response
+          return new Response('Network error occurred', {
+            status: 408,
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        });
       })
   );
 });
