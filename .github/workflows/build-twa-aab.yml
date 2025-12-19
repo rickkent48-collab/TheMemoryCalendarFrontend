@@ -138,9 +138,9 @@ jobs:
       - name: Generate upload keystore
         id: keystore
         run: |
-          # Generate random passwords
-          KEYSTORE_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-          KEY_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+          # Generate random passwords with better entropy
+          KEYSTORE_PASSWORD=$(openssl rand -hex 32)
+          KEY_PASSWORD=$(openssl rand -hex 32)
           KEY_ALIAS="upload-key"
           
           # Generate the keystore
@@ -182,7 +182,8 @@ jobs:
           # Also save SHA-256 separately for easy access
           keytool -list -v -keystore upload.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" | head -n1 | sed 's/.*SHA256: //' > UPLOAD_KEY_SHA256.txt
           
-          # Export for signing step
+          # Export passwords to environment for signing step
+          # Note: GitHub Actions masks sensitive values in logs automatically
           echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
           echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
           echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
