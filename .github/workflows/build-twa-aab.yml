@@ -89,9 +89,10 @@ jobs:
         run: |
           # Build the Android project (this generates the android-project directory)
           bubblewrap build
-      
-      - name: Copy adaptive icon assets
-        run: |
+          
+          # Now update the adaptive icons before the final build
+          echo "Updating adaptive icons..."
+          
           # Ensure the drawable directories exist
           mkdir -p android-project/app/src/main/res/drawable
           
@@ -99,42 +100,40 @@ jobs:
           cp icons/adaptive-foreground-432.png android-project/app/src/main/res/drawable/ic_launcher_foreground.png
           cp icons/adaptive-background-432.png android-project/app/src/main/res/drawable/ic_launcher_background.png
           
-          # Verify files were copied
-          ls -la android-project/app/src/main/res/drawable/
-      
-      - name: Update adaptive icon XML files
-        run: |
           # Create ic_launcher.xml for adaptive icon
           mkdir -p android-project/app/src/main/res/mipmap-anydpi-v26
           
-          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'
+          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'ICONEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@drawable/ic_launcher_background"/>
               <foreground android:drawable="@drawable/ic_launcher_foreground"/>
           </adaptive-icon>
-          EOF
+          ICONEOF
           
           # Create ic_launcher_round.xml for adaptive icon (round variant)
-          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml << 'EOF'
+          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml << 'ICONEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@drawable/ic_launcher_background"/>
               <foreground android:drawable="@drawable/ic_launcher_foreground"/>
           </adaptive-icon>
-          EOF
+          ICONEOF
           
-          echo "Adaptive icon XMLs created"
+          echo "Adaptive icons updated successfully"
+          ls -la android-project/app/src/main/res/drawable/ | grep ic_launcher
       
       - name: Build unsigned AAB
         run: |
           cd android-project
           
-          # Build the release AAB (unsigned)
-          ./gradlew bundleRelease
+          # Clean previous builds and rebuild with updated icons
+          ./gradlew clean bundleRelease
           
-          # Find the unsigned AAB
-          find . -name "*.aab" -type f
+          # Find and display the unsigned AAB
+          AAB_FILE=$(find . -name "*.aab" -type f | head -n1)
+          echo "Built AAB: $AAB_FILE"
+          ls -lh "$AAB_FILE"
       
       - name: Generate upload keystore
         id: keystore
