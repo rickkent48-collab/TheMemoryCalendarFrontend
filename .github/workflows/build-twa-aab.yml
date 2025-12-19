@@ -33,24 +33,56 @@ jobs:
       
       - name: Initialize Bubblewrap project
         run: |
-          # Run bubblewrap init with the manifest URL
-          # Use --manifest flag to specify the PWA manifest
-          bubblewrap init --manifest=https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
-      
-      - name: Update twa-manifest.json
-        run: |
           # Install jq for JSON manipulation
           sudo apt-get update && sudo apt-get install -y jq
           
-          # Update the twa-manifest.json with correct package name and app name
-          jq '.packageId = "com.github.thememorycalendar" | 
-              .name = "The Memory Calendar" | 
-              .launcherName = "The Memory Calendar"' twa-manifest.json > twa-manifest.tmp.json
+          # Create twa-manifest.json directly with all required fields
+          # This is more reliable than interactive prompts in CI
+          cat > twa-manifest.json << 'EOF'
+          {
+            "packageId": "com.github.thememorycalendar",
+            "host": "rickkent48-collab.github.io",
+            "name": "The Memory Calendar",
+            "launcherName": "The Memory Calendar",
+            "display": "standalone",
+            "themeColor": "#ffffff",
+            "navigationColor": "#ffffff",
+            "backgroundColor": "#ffffff",
+            "startUrl": "/TheMemoryCalendarFrontend/",
+            "iconUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+            "maskableIconUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signingKey": {
+              "path": "./upload.keystore",
+              "alias": "upload-key"
+            },
+            "appVersionName": "1.0.0",
+            "appVersionCode": 1,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest",
+            "fallbackType": "customtabs",
+            "features": {
+              "locationDelegation": {
+                "enabled": false
+              },
+              "playBilling": {
+                "enabled": false
+              }
+            },
+            "alphaDependencies": {
+              "enabled": false
+            },
+            "enableNotifications": true,
+            "enableSiteSettingsShortcut": false,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "minSdkVersion": 19,
+            "targetSdkVersion": 33
+          }
+          EOF
           
-          mv twa-manifest.tmp.json twa-manifest.json
-          
-          # Display the updated manifest for verification
-          echo "Updated twa-manifest.json:"
+          echo "Created twa-manifest.json:"
           cat twa-manifest.json
       
       - name: Build Android project with Bubblewrap
