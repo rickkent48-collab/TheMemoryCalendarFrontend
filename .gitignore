@@ -1,0 +1,25 @@
+# Generated TWA/Android project (should not be committed)
+android-project/
+twa-manifest.json
+
+# Build artifacts
+*.aab
+*.apk
+*.keystore
+
+# Keystore credentials (sensitive)
+UPLOAD_KEY_NOTES.txt
+UPLOAD_KEY_SHA256.txt
+
+# Gradle files
+.gradle/
+build/
+*.iml
+.idea/
+local.properties
+
+# macOS
+.DS_Store
+
+# Node modules (if any)
+node_modules/

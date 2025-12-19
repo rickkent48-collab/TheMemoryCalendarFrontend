@@ -1,0 +1,265 @@
+name: Build TWA Android App Bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-twa:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+      
+      - name: Initialize Bubblewrap project
+        run: |
+          # Run bubblewrap init with the manifest URL
+          # Use --manifest flag to specify the PWA manifest
+          bubblewrap init --manifest=https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
+      
+      - name: Update twa-manifest.json
+        run: |
+          # Install jq for JSON manipulation
+          sudo apt-get update && sudo apt-get install -y jq
+          
+          # Update the twa-manifest.json with correct package name and app name
+          jq '.packageId = "com.github.thememorycalendar" | 
+              .name = "The Memory Calendar" | 
+              .launcherName = "The Memory Calendar"' twa-manifest.json > twa-manifest.tmp.json
+          
+          mv twa-manifest.tmp.json twa-manifest.json
+          
+          # Display the updated manifest for verification
+          echo "Updated twa-manifest.json:"
+          cat twa-manifest.json
+      
+      - name: Build Android project with Bubblewrap
+        run: |
+          # Build the Android project (this generates the android-project directory)
+          bubblewrap build
+      
+      - name: Copy adaptive icon assets
+        run: |
+          # Ensure the drawable directories exist
+          mkdir -p android-project/app/src/main/res/drawable
+          
+          # Copy adaptive icon foreground and background
+          cp icons/adaptive-foreground-432.png android-project/app/src/main/res/drawable/ic_launcher_foreground.png
+          cp icons/adaptive-background-432.png android-project/app/src/main/res/drawable/ic_launcher_background.png
+          
+          # Verify files were copied
+          ls -la android-project/app/src/main/res/drawable/
+      
+      - name: Update adaptive icon XML files
+        run: |
+          # Create ic_launcher.xml for adaptive icon
+          mkdir -p android-project/app/src/main/res/mipmap-anydpi-v26
+          
+          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          
+          # Create ic_launcher_round.xml for adaptive icon (round variant)
+          cat > android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          
+          echo "Adaptive icon XMLs created"
+      
+      - name: Build unsigned AAB
+        run: |
+          cd android-project
+          
+          # Build the release AAB (unsigned)
+          ./gradlew bundleRelease
+          
+          # Find the unsigned AAB
+          find . -name "*.aab" -type f
+      
+      - name: Generate upload keystore
+        id: keystore
+        run: |
+          # Generate random passwords
+          KEYSTORE_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+          KEY_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+          KEY_ALIAS="upload-key"
+          
+          # Generate the keystore
+          keytool -genkey -v \
+            -keystore upload.keystore \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -dname "CN=The Memory Calendar, OU=App Development, O=GitHub, L=San Francisco, ST=California, C=US"
+          
+          # Save credentials to file
+          cat > UPLOAD_KEY_NOTES.txt << EOF
+          Upload Keystore Credentials
+          ============================
+          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          Keystore File: upload.keystore
+          Key Alias: $KEY_ALIAS
+          Keystore Password: $KEYSTORE_PASSWORD
+          Key Password: $KEY_PASSWORD
+          
+          IMPORTANT NOTES:
+          1. Keep these credentials secure! You'll need them for future app updates.
+          2. The keystore and passwords are required to sign updated versions of your app.
+          3. Store these in a secure password manager.
+          4. After uploading to Google Play Console with app signing enabled,
+             you'll receive an App Signing certificate SHA-256 fingerprint.
+          5. Update your assetlinks.json with the App Signing SHA-256 (not the upload key SHA-256).
+          
+          Upload Key SHA-256 Fingerprint (for reference only):
+          EOF
+          
+          # Get the SHA-256 fingerprint
+          keytool -list -v -keystore upload.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" | head -n1 >> UPLOAD_KEY_NOTES.txt
+          
+          # Also save SHA-256 separately for easy access
+          keytool -list -v -keystore upload.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" | head -n1 | sed 's/.*SHA256: //' > UPLOAD_KEY_SHA256.txt
+          
+          # Export for signing step
+          echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          
+          echo "Keystore generated successfully"
+      
+      - name: Sign AAB with jarsigner
+        run: |
+          # Find the unsigned AAB
+          UNSIGNED_AAB=$(find android-project -name "*.aab" -type f | head -n1)
+          
+          if [ -z "$UNSIGNED_AAB" ]; then
+            echo "Error: No AAB file found!"
+            exit 1
+          fi
+          
+          echo "Found AAB: $UNSIGNED_AAB"
+          
+          # Sign the AAB
+          jarsigner -verbose \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            -keystore upload.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            "$UNSIGNED_AAB" \
+            "$KEY_ALIAS"
+          
+          # Verify the signature
+          jarsigner -verify -verbose -certs "$UNSIGNED_AAB"
+          
+          # Copy to a well-known name
+          cp "$UNSIGNED_AAB" app-release.aab
+          
+          echo "AAB signed successfully"
+          ls -lh app-release.aab
+      
+      - name: Upload signed AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-bundle
+          path: app-release.aab
+          retention-days: 30
+      
+      - name: Upload keystore artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-keystore
+          path: upload.keystore
+          retention-days: 90
+      
+      - name: Upload keystore notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystore-credentials
+          path: UPLOAD_KEY_NOTES.txt
+          retention-days: 90
+      
+      - name: Upload SHA256 fingerprint
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-key-sha256
+          path: UPLOAD_KEY_SHA256.txt
+          retention-days: 90
+      
+      - name: Display next steps
+        run: |
+          cat << 'EOF'
+          
+          ========================================
+          Build Complete! Next Steps:
+          ========================================
+          
+          1. Download the artifacts from this workflow run:
+             - app-release.aab (signed Android App Bundle)
+             - upload.keystore (keep this secure!)
+             - UPLOAD_KEY_NOTES.txt (contains keystore credentials)
+             - UPLOAD_KEY_SHA256.txt (upload key fingerprint)
+          
+          2. Upload app-release.aab to Google Play Console:
+             - Go to https://play.google.com/console
+             - Create a new app or select existing app
+             - Navigate to Release > Production > Create new release
+             - Upload the app-release.aab file
+             - Enable Google Play App Signing (recommended)
+          
+          3. After uploading with App Signing enabled:
+             - Google Play will show you the App Signing certificate SHA-256
+             - This is DIFFERENT from the upload key SHA-256
+             - You MUST use the App Signing SHA-256 in your assetlinks.json
+          
+          4. Update assetlinks.json at rickkent48-collab.github.io:
+             - Replace the placeholder SHA-256 with the App Signing SHA-256
+             - The file should be at: /.well-known/assetlinks.json
+             - Format:
+               [{
+                 "relation": ["delegate_permission/common.handle_all_urls"],
+                 "target": {
+                   "namespace": "android_app",
+                   "package_name": "com.github.thememorycalendar",
+                   "sha256_cert_fingerprints": ["YOUR_APP_SIGNING_SHA256_HERE"]
+                 }
+               }]
+          
+          5. Test the TWA:
+             - Install via Play Console internal testing
+             - Open the app - it should display fullscreen without browser UI
+             - Verify deep links work correctly
+          
+          ========================================
+          EOF
