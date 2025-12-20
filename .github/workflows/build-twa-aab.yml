@@ -50,71 +50,71 @@ jobs:
               send "N\r"
               exp_continue
             }
-            -re "Directory where to generate the project.*" {
+            -re "Directory where to generate the project" {
               send "android-project\r"
               exp_continue
             }
-            -re "Name for the application.*" {
+            -re "Name for the application" {
               send "The Memory Calendar\r"
               exp_continue
             }
-            -re "Name for the package.*" {
+            -re "Name for the package" {
               send "com.github.thememorycalendar\r"
               exp_continue
             }
-            -re "Minimum version.*" {
+            -re "Minimum version" {
               send "\r"
               exp_continue
             }
-            -re "Target.*version.*" {
+            -re "Target.*version" {
               send "\r"
               exp_continue
             }
-            -re "Status bar color.*" {
+            -re "Status bar color" {
               send "\r"
               exp_continue
             }
-            -re "Splash screen.*color.*" {
+            -re "Splash screen.*color" {
               send "\r"
               exp_continue
             }
-            -re "Display mode.*" {
+            -re "Display mode" {
               send "\r"
               exp_continue
             }
-            -re "Orientation.*" {
+            -re "Orientation" {
               send "\r"
               exp_continue
             }
-            -re "Theme color.*" {
+            -re "Theme color" {
               send "\r"
               exp_continue
             }
-            -re "Background color.*" {
+            -re "Background color" {
               send "\r"
               exp_continue
             }
-            -re "Enable site.*settings shortcut.*" {
+            -re "Enable site.*settings shortcut" {
               send "\r"
               exp_continue
             }
-            -re "Shortcuts.*" {
+            -re "Shortcuts" {
               send "\r"
               exp_continue
             }
-            -re "Include app.*fallback.*" {
+            -re "Include app.*fallback" {
               send "\r"
               exp_continue
             }
-            -re ".*signing key.*" {
+            -re "signing key" {
               send "\r"
               exp_continue
             }
-            -re "launch Android Studio.*" {
+            -re "launch Android Studio" {
               send "N\r"
               exp_continue
             }
-            -re "already exists.*" {
+            -re "already exists" {
               send "y\r"
               exp_continue
             }
@@ -147,7 +147,7 @@ jobs:
           
           # List structure for diagnostics
           echo "Android project structure:"
-          find android-project -maxdepth 3 -type f -o -type d | head -50
+          find android-project -maxdepth 3 | sort | head -50
           
           # Show twa-manifest.json if it exists
           if [ -f "twa-manifest.json" ]; then
