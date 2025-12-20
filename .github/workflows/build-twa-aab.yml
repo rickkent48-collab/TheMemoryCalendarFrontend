@@ -106,6 +106,24 @@ jobs:
           echo "Bubblewrap version: $(bubblewrap --version || echo 'version command not available')"
           echo "::endgroup::"
           
+          echo "::group::Verifying JAVA_HOME"
+          # Verify JAVA_HOME is set and the path exists
+          if [ -z "$JAVA_HOME" ]; then
+            echo "ERROR: JAVA_HOME is not set"
+            exit 1
+          fi
+          
+          if [ ! -d "$JAVA_HOME" ]; then
+            echo "ERROR: JAVA_HOME path does not exist: $JAVA_HOME"
+            exit 1
+          fi
+          
+          echo "✓ JAVA_HOME is set to: $JAVA_HOME"
+          echo "✓ JAVA_HOME path exists"
+          echo "Contents of JAVA_HOME:"
+          ls -la "$JAVA_HOME" | head -20
+          echo "::endgroup::"
+          
           echo "::group::Creating expect script"
           # Create comprehensive expect script for non-interactive bubblewrap init
           cat > /tmp/bubblewrap-init.exp << 'EOF'
@@ -115,92 +133,176 @@ jobs:
           # Get JAVA_HOME from environment
           set java_home $env(JAVA_HOME)
           
+          # Initialize JDK prompt counter for fail-fast behavior
+          set jdk_prompt_count 0
+          
+          puts "========================================="
+          puts "Bubblewrap Init - Expect Script Starting"
+          puts "========================================="
+          puts "JAVA_HOME read from environment: $java_home"
+          puts ""
+          
+          # Verify the JDK path exists before proceeding
+          if {![file isdirectory $java_home]} {
+            puts "ERROR: JDK path does not exist: $java_home"
+            puts "Cannot proceed with bubblewrap init"
+            exit 1
+          }
+          puts "✓ JDK path verified to exist: $java_home"
+          puts ""
+          
           spawn bubblewrap init --manifest https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
           
           expect {
             -re "Do you want Bubblewrap to install the JDK.*\\?" {
+              puts "\n>>> Prompt detected: 'Do you want Bubblewrap to install the JDK?'"
+              puts ">>> Responding: N (we will use existing JDK)"
               send "N\r"
               exp_continue
             }
             -re "Path to your existing JDK.*:" {
+              incr jdk_prompt_count
+              puts "\n>>> Prompt detected: 'Path to your existing JDK' (attempt #$jdk_prompt_count)"
+              
+              # Fail-fast if JDK prompt appears more than once
+              if {$jdk_prompt_count > 1} {
+                puts "ERROR: JDK path prompt appeared $jdk_prompt_count times!"
+                puts "This indicates the previous JDK path was rejected by Bubblewrap."
+                puts "JDK path that was sent: $java_home"
+                puts "Aborting to prevent infinite loop."
+                exit 1
+              }
+              
+              puts ">>> Responding with JDK path: $java_home"
               send "$java_home\r"
               exp_continue
             }
             -re "Directory where to generate the project" {
+              puts "\n>>> Prompt detected: 'Directory where to generate the project'"
+              puts ">>> Responding: android-project"
               send "android-project\r"
               exp_continue
             }
             -re "Name for the application" {
+              puts "\n>>> Prompt detected: 'Name for the application'"
+              puts ">>> Responding: The Memory Calendar"
               send "The Memory Calendar\r"
               exp_continue
             }
             -re "Name for the package" {
+              puts "\n>>> Prompt detected: 'Name for the package'"
+              puts ">>> Responding: com.github.thememorycalendar"
               send "com.github.thememorycalendar\r"
               exp_continue
             }
             -re "Minimum version" {
+              puts "\n>>> Prompt detected: 'Minimum version'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Target.*version" {
+              puts "\n>>> Prompt detected: 'Target version'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Status bar color" {
+              puts "\n>>> Prompt detected: 'Status bar color'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Splash screen.*color" {
+              puts "\n>>> Prompt detected: 'Splash screen color'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Display mode" {
+              puts "\n>>> Prompt detected: 'Display mode'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Orientation" {
+              puts "\n>>> Prompt detected: 'Orientation'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Theme color" {
+              puts "\n>>> Prompt detected: 'Theme color'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Background color" {
+              puts "\n>>> Prompt detected: 'Background color'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Enable site.*settings shortcut" {
+              puts "\n>>> Prompt detected: 'Enable site settings shortcut'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Shortcuts" {
+              puts "\n>>> Prompt detected: 'Shortcuts'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "Include app.*fallback" {
+              puts "\n>>> Prompt detected: 'Include app fallback'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "signing key" {
+              puts "\n>>> Prompt detected: 'signing key'"
+              puts ">>> Responding: <enter> (accept default)"
               send "\r"
               exp_continue
             }
             -re "launch Android Studio" {
+              puts "\n>>> Prompt detected: 'launch Android Studio'"
+              puts ">>> Responding: N (skip Android Studio)"
               send "N\r"
               exp_continue
             }
             -re "already exists" {
+              puts "\n>>> Prompt detected: 'already exists'"
+              puts ">>> Responding: y (overwrite existing project)"
               send "y\r"
               exp_continue
             }
             timeout {
-              puts "ERROR: Bubblewrap init timed out after 600 seconds waiting for prompt"
+              puts "\n========================================="
+              puts "ERROR: Bubblewrap init timed out"
+              puts "========================================="
+              puts "Waited 600 seconds for prompt but none arrived"
               puts "This likely indicates a hang in the bubblewrap init process"
-              puts "Check that the manifest URL is accessible and the Android SDK is properly configured"
+              puts ""
+              puts "Possible causes:"
+              puts "1. Manifest URL is not accessible"
+              puts "2. Android SDK is not properly configured"
+              puts "3. Unexpected prompt from bubblewrap"
+              puts ""
+              puts "JDK prompt count: $jdk_prompt_count"
+              puts "JDK path used: $java_home"
               exit 1
             }
-            eof
+            eof {
+              puts "\n========================================="
+              puts "Bubblewrap Init - Process Completed"
+              puts "========================================="
+              puts "JDK prompts responded to: $jdk_prompt_count"
+              puts "JDK path sent to Bubblewrap: $java_home"
+              puts ""
+            }
           }
           
           # Wait for spawned process to complete and collect exit status (TCL/expect command)
@@ -221,28 +323,57 @@ jobs:
           # Verify android-project was created
           echo "Verifying android-project creation..."
           if [ ! -d "android-project" ]; then
-            echo "ERROR: android-project directory was not created by bubblewrap init"
-            echo "Bubblewrap may have failed silently. Check logs above for errors."
+            echo "========================================="
+            echo "ERROR: android-project directory not created"
+            echo "========================================="
+            echo "The android-project directory was not created by bubblewrap init."
+            echo "This indicates bubblewrap init failed or was aborted."
+            echo ""
+            echo "Possible causes:"
+            echo "1. Bubblewrap received invalid JDK path"
+            echo "2. Manifest URL was not accessible"
+            echo "3. Android SDK configuration issue"
+            echo "4. Expect script failed to handle a prompt"
+            echo ""
+            echo "Check the expect script output above for details."
+            echo ""
             
             # Show twa-manifest.json if it exists for debugging
             if [ -f "twa-manifest.json" ]; then
               echo "Contents of twa-manifest.json:"
               cat twa-manifest.json
+              echo ""
             fi
+            
+            echo "Current directory contents:"
+            ls -la
+            echo ""
             
             exit 1
           fi
           
+          echo "✓ android-project directory created"
+          
           # Verify gradlew was created
           if [ ! -f "android-project/gradlew" ]; then
-            echo "ERROR: android-project/gradlew was not created"
+            echo "========================================="
+            echo "ERROR: android-project/gradlew not found"
+            echo "========================================="
+            echo "The android-project directory exists but gradlew was not created."
+            echo "This indicates bubblewrap init may have partially completed."
+            echo ""
             echo "Contents of android-project:"
             ls -la android-project/ || echo "Cannot list android-project"
+            echo ""
+            echo "This usually means:"
+            echo "1. Bubblewrap init was interrupted"
+            echo "2. Project generation failed partway through"
+            echo "3. Gradle wrapper was not properly created"
+            echo ""
             exit 1
           fi
           
-          echo "✓ android-project created successfully"
-          echo "✓ gradlew found"
+          echo "✓ android-project/gradlew found"
           
           # Show tree structure for debugging
           echo ""
@@ -255,6 +386,9 @@ jobs:
             echo "Contents of twa-manifest.json:"
             cat twa-manifest.json
           fi
+          
+          echo ""
+          echo "✓ All verifications passed - android-project is ready"
           echo "::endgroup::"
       
       - name: Replace adaptive launcher icons
