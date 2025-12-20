@@ -26,11 +26,19 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y expect
       
       - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
+        run: |
+          npm install -g @bubblewrap/cli
+          
+          # Echo versions for diagnostics
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Bubblewrap version: $(bubblewrap --version || echo 'version command not available')"
       
       - name: Initialize TWA project with bubblewrap
         run: |
-          # Create expect script for non-interactive bubblewrap init
+          set -euo pipefail
+          
+          # Create comprehensive expect script for non-interactive bubblewrap init
           cat > /tmp/bubblewrap-init.exp << 'EOF'
           #!/usr/bin/expect -f
           set timeout 300
@@ -38,15 +46,75 @@ jobs:
           spawn bubblewrap init --manifest https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
           
           expect {
-            "Directory where to generate the project" {
+            -re "Do you want Bubblewrap to install the JDK.*\\?" {
+              send "N\r"
+              exp_continue
+            }
+            -re "Directory where to generate the project" {
               send "android-project\r"
               exp_continue
             }
-            "Name for the package" {
+            -re "Name for the application" {
+              send "The Memory Calendar\r"
+              exp_continue
+            }
+            -re "Name for the package" {
               send "com.github.thememorycalendar\r"
               exp_continue
             }
-            "*already exists*" {
+            -re "Minimum version" {
+              send "\r"
+              exp_continue
+            }
+            -re "Target.*version" {
+              send "\r"
+              exp_continue
+            }
+            -re "Status bar color" {
+              send "\r"
+              exp_continue
+            }
+            -re "Splash screen.*color" {
+              send "\r"
+              exp_continue
+            }
+            -re "Display mode" {
+              send "\r"
+              exp_continue
+            }
+            -re "Orientation" {
+              send "\r"
+              exp_continue
+            }
+            -re "Theme color" {
+              send "\r"
+              exp_continue
+            }
+            -re "Background color" {
+              send "\r"
+              exp_continue
+            }
+            -re "Enable site.*settings shortcut" {
+              send "\r"
+              exp_continue
+            }
+            -re "Shortcuts" {
+              send "\r"
+              exp_continue
+            }
+            -re "Include app.*fallback" {
+              send "\r"
+              exp_continue
+            }
+            -re "signing key" {
+              send "\r"
+              exp_continue
+            }
+            -re "launch Android Studio" {
+              send "N\r"
+              exp_continue
+            }
+            -re "already exists" {
               send "y\r"
               exp_continue
             }
@@ -55,10 +123,48 @@ jobs:
           EOF
           
           chmod +x /tmp/bubblewrap-init.exp
+          echo "Running bubblewrap init..."
           /tmp/bubblewrap-init.exp
+          
+          # Verify android-project was created
+          echo "Verifying android-project creation..."
+          if [ ! -d "android-project" ]; then
+            echo "ERROR: android-project directory was not created by bubblewrap init"
+            echo "Bubblewrap may have failed silently. Check logs above for errors."
+            exit 1
+          fi
+          
+          # Verify gradlew was created
+          if [ ! -f "android-project/gradlew" ]; then
+            echo "ERROR: android-project/gradlew was not created"
+            echo "Contents of android-project:"
+            ls -la android-project/ || echo "Cannot list android-project"
+            exit 1
+          fi
+          
+          echo "✓ android-project created successfully"
+          echo "✓ gradlew found"
+          
+          # List structure for diagnostics
+          echo "Android project structure:"
+          find android-project -maxdepth 3 | sort | head -50
+          
+          # Show twa-manifest.json if it exists
+          if [ -f "twa-manifest.json" ]; then
+            echo "Contents of twa-manifest.json:"
+            cat twa-manifest.json
+          fi
       
       - name: Replace adaptive launcher icons
         run: |
+          set -euo pipefail
+          
+          # Verify android-project exists before modifying
+          if [ ! -d "android-project" ]; then
+            echo "ERROR: android-project directory does not exist. Cannot replace icons."
+            exit 1
+          fi
+          
           # Copy adaptive icons from repo to Android project
           mkdir -p android-project/app/src/main/res/drawable
           
@@ -87,7 +193,7 @@ jobs:
           </adaptive-icon>
           XMLEOF
           
-          echo "Adaptive icons replaced successfully"
+          echo "✓ Adaptive icons replaced successfully"
       
       - name: Generate keystore passwords
         id: keystore-passwords
@@ -122,11 +228,21 @@ jobs:
       - name: Build release app bundle
         working-directory: android-project
         run: |
+          set -euo pipefail
+          
+          # Verify gradlew exists
+          if [ ! -f "gradlew" ]; then
+            echo "ERROR: gradlew not found in android-project/"
+            echo "Contents of android-project:"
+            ls -la
+            exit 1
+          fi
+          
           # Build the release app bundle using Gradle
           chmod +x gradlew
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease --stacktrace
           
-          echo "App bundle built successfully"
+          echo "✓ App bundle built successfully"
       
       - name: Sign the app bundle
         env:
