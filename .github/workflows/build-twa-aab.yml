@@ -71,7 +71,7 @@ jobs:
           
           echo "::group::Accepting Android SDK licenses"
           # Accept licenses - use yes with proper error handling
-          yes 2>/dev/null | sdkmanager --licenses || echo "License acceptance completed"
+          yes 2>/dev/null | sdkmanager --licenses || echo "License acceptance process completed (exit code: $?)"
           echo "::endgroup::"
           
           echo "::group::Installing Android SDK components"
@@ -85,7 +85,7 @@ jobs:
           
           # Echo versions for diagnostics
           echo "SDK Manager version:"
-          sdkmanager --version || echo "sdkmanager version check failed"
+          sdkmanager --version || echo "Note: sdkmanager version check failed, but this does not affect SDK functionality"
           
           # Verify installation
           echo ""
@@ -197,6 +197,7 @@ jobs:
             timeout {
               puts "ERROR: Bubblewrap init timed out after 600 seconds waiting for prompt"
               puts "This likely indicates a hang in the bubblewrap init process"
+              puts "Check that the manifest URL is accessible and the Android SDK is properly configured"
               exit 1
             }
             eof
