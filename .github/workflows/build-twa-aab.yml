@@ -38,16 +38,29 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Print diagnostics
+          echo "Environment diagnostics:"
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          
           # Create comprehensive expect script for non-interactive bubblewrap init
           cat > /tmp/bubblewrap-init.exp << 'EOF'
           #!/usr/bin/expect -f
           set timeout 300
+          
+          # Get JAVA_HOME from environment
+          set java_home $env(JAVA_HOME)
           
           spawn bubblewrap init --manifest https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
           
           expect {
             -re "Do you want Bubblewrap to install the JDK.*\\?" {
               send "N\r"
+              exp_continue
+            }
+            -re "Path to your existing JDK.*:" {
+              send "$java_home\r"
               exp_continue
             }
             -re "Directory where to generate the project" {
