@@ -65,7 +65,7 @@ jobs:
           
           # Accept licenses
           echo "Accepting Android SDK licenses..."
-          yes | sdkmanager --licenses || true
+          yes 2>/dev/null | sdkmanager --licenses > /dev/null 2>&1 || echo "Licenses already accepted or sdkmanager license check completed"
           
           # Install required SDK components
           echo "Installing Android SDK components..."
@@ -181,7 +181,7 @@ jobs:
             eof
           }
           
-          # Wait for process to complete
+          # Wait for spawned process to complete and collect exit status (TCL/expect command)
           wait
           EOF
           
