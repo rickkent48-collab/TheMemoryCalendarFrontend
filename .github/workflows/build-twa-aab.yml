@@ -6,7 +6,7 @@ on:
 jobs:
   build-twa:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     
     steps:
       - name: Checkout repository
@@ -28,6 +28,8 @@ jobs:
       
       - name: Install Bubblewrap CLI
         run: |
+          set -euo pipefail
+          
           npm install -g @bubblewrap/cli
           
           # Echo versions for diagnostics
@@ -38,6 +40,8 @@ jobs:
       - name: Set up Android SDK
         run: |
           set -euo pipefail
+          
+          echo "::group::Setting up Android SDK"
           
           # Set ANDROID_SDK_ROOT
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
@@ -63,34 +67,50 @@ jobs:
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
           
-          # Accept licenses
-          echo "Accepting Android SDK licenses..."
-          yes 2>/dev/null | sdkmanager --licenses > /dev/null 2>&1 || echo "Licenses already accepted or sdkmanager license check completed"
+          echo "::endgroup::"
           
+          echo "::group::Accepting Android SDK licenses"
+          # Accept licenses - use yes with proper error handling
+          yes 2>/dev/null | sdkmanager --licenses || echo "License acceptance completed"
+          echo "::endgroup::"
+          
+          echo "::group::Installing Android SDK components"
           # Install required SDK components
           echo "Installing Android SDK components..."
           sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "::endgroup::"
           
+          echo "::group::Verifying Android SDK installation"
           echo "✓ Android SDK setup complete"
           
+          # Echo versions for diagnostics
+          echo "SDK Manager version:"
+          sdkmanager --version || echo "sdkmanager version check failed"
+          
           # Verify installation
+          echo ""
           echo "SDK components installed:"
           sdkmanager --list_installed
+          echo "::endgroup::"
       
       - name: Initialize TWA project with bubblewrap
         run: |
           set -euo pipefail
           
+          echo "::group::Environment diagnostics"
           # Print diagnostics
           echo "Environment diagnostics:"
           echo "JAVA_HOME: $JAVA_HOME"
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
+          echo "Bubblewrap version: $(bubblewrap --version || echo 'version command not available')"
+          echo "::endgroup::"
           
+          echo "::group::Creating expect script"
           # Create comprehensive expect script for non-interactive bubblewrap init
           cat > /tmp/bubblewrap-init.exp << 'EOF'
           #!/usr/bin/expect -f
-          set timeout 300
+          set timeout 600
           
           # Get JAVA_HOME from environment
           set java_home $env(JAVA_HOME)
@@ -175,7 +195,8 @@ jobs:
               exp_continue
             }
             timeout {
-              puts "ERROR: Bubblewrap init timed out waiting for prompt"
+              puts "ERROR: Bubblewrap init timed out after 600 seconds waiting for prompt"
+              puts "This likely indicates a hang in the bubblewrap init process"
               exit 1
             }
             eof
@@ -186,14 +207,28 @@ jobs:
           EOF
           
           chmod +x /tmp/bubblewrap-init.exp
+          echo "Expect script created"
+          echo "::endgroup::"
+          
+          echo "::group::Running bubblewrap init"
           echo "Running bubblewrap init..."
           /tmp/bubblewrap-init.exp
+          echo "Bubblewrap init completed"
+          echo "::endgroup::"
           
+          echo "::group::Verifying android-project creation"
           # Verify android-project was created
           echo "Verifying android-project creation..."
           if [ ! -d "android-project" ]; then
             echo "ERROR: android-project directory was not created by bubblewrap init"
             echo "Bubblewrap may have failed silently. Check logs above for errors."
+            
+            # Show twa-manifest.json if it exists for debugging
+            if [ -f "twa-manifest.json" ]; then
+              echo "Contents of twa-manifest.json:"
+              cat twa-manifest.json
+            fi
+            
             exit 1
           fi
           
@@ -209,14 +244,17 @@ jobs:
           echo "✓ gradlew found"
           
           # Show tree structure for debugging
+          echo ""
           echo "Android project tree structure:"
           tree -L 3 android-project || find android-project -maxdepth 3 -print | sort
           
           # Show twa-manifest.json if it exists
           if [ -f "twa-manifest.json" ]; then
+            echo ""
             echo "Contents of twa-manifest.json:"
             cat twa-manifest.json
           fi
+          echo "::endgroup::"
       
       - name: Replace adaptive launcher icons
         run: |
@@ -261,6 +299,8 @@ jobs:
       - name: Generate keystore passwords
         id: keystore-passwords
         run: |
+          set -euo pipefail
+          
           # Generate random passwords for keystore
           KEYSTORE_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
           KEY_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
@@ -275,6 +315,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
           KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
         run: |
+          set -euo pipefail
+          
           # Generate a new keystore for signing the app
           keytool -genkeypair -v \
             -keystore upload-keystore.jks \
@@ -293,6 +335,8 @@ jobs:
         run: |
           set -euo pipefail
           
+          echo "::group::Building release app bundle"
+          
           # Verify gradlew exists
           if [ ! -f "gradlew" ]; then
             echo "ERROR: gradlew not found in android-project/"
@@ -306,12 +350,15 @@ jobs:
           ./gradlew bundleRelease --stacktrace
           
           echo "✓ App bundle built successfully"
+          echo "::endgroup::"
       
       - name: Sign the app bundle
         env:
           KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
           KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
         run: |
+          set -euo pipefail
+          
           # Find the unsigned AAB
           AAB_PATH=$(find android-project/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
           
@@ -340,6 +387,8 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
         run: |
+          set -euo pipefail
+          
           # Get the SHA-256 fingerprint of the upload key
           FINGERPRINT=$(keytool -list -v \
             -keystore upload-keystore.jks \
@@ -357,6 +406,8 @@ jobs:
           KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
           FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
         run: |
+          set -euo pipefail
+          
           cat > keystore-credentials.txt << EOF
           Upload Keystore Credentials
           ============================
@@ -385,6 +436,8 @@ jobs:
         env:
           FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
         run: |
+          set -euo pipefail
+          
           cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ TWA App Bundle Build Complete
           
