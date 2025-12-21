@@ -132,6 +132,7 @@ jobs:
           
           # Initialize JDK prompt counter for fail-fast behavior
           set jdk_prompt_count 0
+          set jdk_path_prompt_count 0
           
           puts "========================================="
           puts "Bubblewrap Init - Expect Script Starting"
@@ -142,18 +143,28 @@ jobs:
           spawn bubblewrap init --manifest https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
           
           expect {
-            -re "Do you want Bubblewrap to install the JDK.*\\?" {
-              puts "\n>>> Prompt detected: 'Do you want Bubblewrap to install the JDK?'"
+            -re "Do you want Bubblewrap to install the JDK.*\\(Y/n\\)" {
+              puts "\n>>> Prompt detected: 'Do you want Bubblewrap to install the JDK? (Y/n)'"
               puts ">>> Responding: Y (let Bubblewrap install JDK)"
               send "Y\r"
               exp_continue
             }
             -re "Path to your existing JDK.*:" {
-              incr jdk_prompt_count
-              puts "\n>>> ERROR: Unexpected prompt detected: 'Path to your existing JDK' (attempt #$jdk_prompt_count)"
-              puts "This prompt should not appear when we answered Y to install JDK."
-              puts "Aborting to prevent infinite loop."
-              exit 1
+              incr jdk_path_prompt_count
+              puts "\n>>> Prompt detected: 'Path to your existing JDK' (attempt #$jdk_path_prompt_count)"
+              if {$jdk_path_prompt_count > 1} {
+                puts ">>> ERROR: JDK path prompt appeared more than once. Failing fast."
+                exit 1
+              }
+              puts ">>> Responding with JAVA_HOME: $env(JAVA_HOME)"
+              send "$env(JAVA_HOME)\r"
+              exp_continue
+            }
+            -re "Do you agree to the Android SDK terms and conditions.*\\(y/N\\)" {
+              puts "\n>>> Prompt detected: 'Do you agree to the Android SDK terms and conditions? (y/N)'"
+              puts ">>> Responding: y (accept Android SDK terms)"
+              send "y\r"
+              exp_continue
             }
             -re "Directory where to generate the project" {
               puts "\n>>> Prompt detected: 'Directory where to generate the project'"
@@ -267,9 +278,11 @@ jobs:
               puts "Possible causes:"
               puts "1. Manifest URL is not accessible"
               puts "2. Android SDK is not properly configured"
-              puts "3. Unexpected prompt from bubblewrap"
+              puts "3. Unexpected prompt from bubblewrap not handled by expect script"
               puts "4. JDK installation by Bubblewrap failed"
+              puts "5. Android SDK terms prompt appeared but wasn't matched"
               puts ""
+              puts "Check the output above for any unhandled prompts."
               exit 1
             }
             eof {
