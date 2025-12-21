@@ -107,6 +107,7 @@ jobs:
             -dname "CN=The Memory Calendar, OU=Development, O=GitHub, L=Unknown, ST=Unknown, C=US"
 
           echo "::group::Verify keystore entry type"
+          # Display first 120 lines of keystore info for diagnostics (avoids log overflow)
           keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | sed -n '1,120p' || true
           ENTRY_TYPE=$(keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | grep -i "Entry type" | awk -F: '{print $2}' | tr -d ' ')
           echo "Entry type: $ENTRY_TYPE"
