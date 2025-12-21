@@ -88,16 +88,16 @@ jobs:
           
           echo "Generated keystore passwords"
       
-      - name: Generate upload keystore
+      - name: Generate upload keystore (PKCS12) and verify
+        id: gen-keystore
         env:
           KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
           KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
         run: |
           set -euo pipefail
-          
-          # Generate a new keystore for signing the app
           keytool -genkeypair -v \
             -keystore upload-keystore.jks \
+            -storetype PKCS12 \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
@@ -105,8 +105,16 @@ jobs:
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
             -dname "CN=The Memory Calendar, OU=Development, O=GitHub, L=Unknown, ST=Unknown, C=US"
-          
-          echo "Upload keystore generated successfully"
+
+          echo "::group::Verify keystore entry type"
+          keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | sed -n '1,120p' || true
+          ENTRY_TYPE=$(keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | grep -i "Entry type" | awk -F: '{print $2}' | tr -d ' ')
+          echo "Entry type: $ENTRY_TYPE"
+          if [ "$ENTRY_TYPE" != "PrivateKeyEntry" ]; then
+            echo "::error::Keystore alias 'upload' is not a PrivateKeyEntry (got '$ENTRY_TYPE'). Signing cannot proceed."
+            exit 1
+          fi
+          echo "::endgroup::"
       
       - name: Build release app bundle
         working-directory: android-project
@@ -130,35 +138,31 @@ jobs:
           echo "✓ App bundle built successfully"
           echo "::endgroup::"
       
-      - name: Sign the app bundle
+      - name: Sign the app bundle (PKCS12) and produce signed output
         env:
           KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
           KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
         run: |
           set -euo pipefail
-          
-          # Find the unsigned AAB
           AAB_PATH=$(find android-project/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
-          
           if [ -z "$AAB_PATH" ]; then
-            echo "Error: Could not find AAB file"
+            echo "::error::Could not find AAB file in app/build/outputs/bundle/release"
             exit 1
           fi
-          
-          echo "Found AAB at: $AAB_PATH"
-          
-          # Sign the AAB with jarsigner
+          echo "Unsigned AAB: $AAB_PATH"
+
           jarsigner -verbose \
             -keystore upload-keystore.jks \
+            -storetype PKCS12 \
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            -signedjar TheMemoryCalendar-release-signed.aab \
             "$AAB_PATH" \
             upload
-          
-          # Copy the signed AAB to a well-known location
-          cp "$AAB_PATH" TheMemoryCalendar-release-signed.aab
-          
-          echo "App bundle signed successfully"
+
+          echo "Signed AAB: TheMemoryCalendar-release-signed.aab"
       
       - name: Get upload key SHA-256 fingerprint
         id: fingerprint
