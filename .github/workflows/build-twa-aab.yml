@@ -130,25 +130,13 @@ jobs:
           #!/usr/bin/expect -f
           set timeout 600
           
-          # Get JAVA_HOME from environment
-          set java_home $env(JAVA_HOME)
-          
           # Initialize JDK prompt counter for fail-fast behavior
           set jdk_prompt_count 0
           
           puts "========================================="
           puts "Bubblewrap Init - Expect Script Starting"
           puts "========================================="
-          puts "JAVA_HOME read from environment: $java_home"
-          puts ""
-          
-          # Verify the JDK path exists before proceeding
-          if {![file isdirectory $java_home]} {
-            puts "ERROR: JDK path does not exist: $java_home"
-            puts "Cannot proceed with bubblewrap init"
-            exit 1
-          }
-          puts "✓ JDK path verified to exist: $java_home"
+          puts "Bubblewrap will install its own JDK during initialization"
           puts ""
           
           spawn bubblewrap init --manifest https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest
@@ -156,26 +144,16 @@ jobs:
           expect {
             -re "Do you want Bubblewrap to install the JDK.*\\?" {
               puts "\n>>> Prompt detected: 'Do you want Bubblewrap to install the JDK?'"
-              puts ">>> Responding: N (we will use existing JDK)"
-              send "N\r"
+              puts ">>> Responding: Y (let Bubblewrap install JDK)"
+              send "Y\r"
               exp_continue
             }
             -re "Path to your existing JDK.*:" {
               incr jdk_prompt_count
-              puts "\n>>> Prompt detected: 'Path to your existing JDK' (attempt #$jdk_prompt_count)"
-              
-              # Fail-fast if JDK prompt appears more than once
-              if {$jdk_prompt_count > 1} {
-                puts "ERROR: JDK path prompt appeared $jdk_prompt_count times!"
-                puts "This indicates the previous JDK path was rejected by Bubblewrap."
-                puts "JDK path that was sent: $java_home"
-                puts "Aborting to prevent infinite loop."
-                exit 1
-              }
-              
-              puts ">>> Responding with JDK path: $java_home"
-              send "$java_home\r"
-              exp_continue
+              puts "\n>>> ERROR: Unexpected prompt detected: 'Path to your existing JDK' (attempt #$jdk_prompt_count)"
+              puts "This prompt should not appear when we answered Y to install JDK."
+              puts "Aborting to prevent infinite loop."
+              exit 1
             }
             -re "Directory where to generate the project" {
               puts "\n>>> Prompt detected: 'Directory where to generate the project'"
@@ -290,17 +268,15 @@ jobs:
               puts "1. Manifest URL is not accessible"
               puts "2. Android SDK is not properly configured"
               puts "3. Unexpected prompt from bubblewrap"
+              puts "4. JDK installation by Bubblewrap failed"
               puts ""
-              puts "JDK prompt count: $jdk_prompt_count"
-              puts "JDK path used: $java_home"
               exit 1
             }
             eof {
               puts "\n========================================="
               puts "Bubblewrap Init - Process Completed"
               puts "========================================="
-              puts "JDK prompts responded to: $jdk_prompt_count"
-              puts "JDK path sent to Bubblewrap: $java_home"
+              puts "Bubblewrap installed its own JDK and initialized the project successfully"
               puts ""
             }
           }
@@ -330,7 +306,7 @@ jobs:
             echo "This indicates bubblewrap init failed or was aborted."
             echo ""
             echo "Possible causes:"
-            echo "1. Bubblewrap received invalid JDK path"
+            echo "1. Bubblewrap failed to install JDK"
             echo "2. Manifest URL was not accessible"
             echo "3. Android SDK configuration issue"
             echo "4. Expect script failed to handle a prompt"
