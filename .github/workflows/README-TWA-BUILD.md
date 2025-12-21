@@ -2,6 +2,17 @@
 
 This guide explains how to build a signed Android App Bundle (.aab) for The Memory Calendar TWA and deploy it to the Google Play Store.
 
+## 📱 How It Works
+
+The build workflow uses a **pre-generated Android TWA project** committed in the `android-project/` directory. This eliminates the need for Bubblewrap CLI initialization during CI builds, making builds faster, more reliable, and deterministic.
+
+The workflow:
+1. Sets up Java 17 and Android SDK
+2. Generates a signing keystore
+3. Builds the Android App Bundle using Gradle
+4. Signs the .aab with the generated keystore
+5. Uploads artifacts (signed .aab, keystore, and credentials)
+
 ## 📱 Running the Workflow from Your Phone
 
 You can trigger the build workflow directly from your phone using the GitHub mobile app or web browser:
@@ -25,7 +36,7 @@ You can trigger the build workflow directly from your phone using the GitHub mob
 
 ## ⏱️ Wait for Build to Complete
 
-The build process takes approximately 5-10 minutes. You can monitor progress:
+The build process takes approximately **10-15 minutes** for the first run, and **5-10 minutes** for subsequent runs (thanks to Gradle caching). You can monitor progress:
 - In the GitHub app: Go to Actions tab and tap on the running workflow
 - In browser: Refresh the Actions page to see the status
 
@@ -196,8 +207,14 @@ The workflow generates a new keystore each time. For production use:
 
 ### Build fails
 - Check the workflow logs in the Actions tab
-- Ensure all required files are in the repository
-- Verify icon files are present in `icons/` directory
+- Verify the `android-project/` directory is committed to the repository
+- Ensure all required files are present in `android-project/`
+- If Gradle build fails, check Android SDK component versions
+
+### Android project structure issues
+- The pre-generated Android project is in `android-project/` directory
+- It includes Gradle wrapper, build files, and Android manifest
+- Adaptive icons are wired from `icons/adaptive-*.png` files
 
 ### App opens with URL bar (not fullscreen)
 - Check assetlinks.json is accessible at the correct URL
