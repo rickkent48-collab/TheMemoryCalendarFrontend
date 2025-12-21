@@ -1,0 +1,77 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 34
+    
+    defaultConfig {
+        applicationId "com.github.thememorycalendar"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+        
+        // The URL for the TWA. It must be https.
+        def twaManifest = [
+            hostName: "rickkent48-collab.github.io",
+            launchUrl: "/TheMemoryCalendarFrontend/",
+            name: "The Memory Calendar",
+            launcherName: "Memory Calendar",
+            themeColor: "#ffffff",
+            navigationColor: "#ffffff",
+            navigationColorDark: "#000000",
+            navigationDividerColor: "#000000",
+            navigationDividerColorDark: "#000000",
+            backgroundColor: "#ffffff",
+            enableNotifications: false,
+            startUrl: "/TheMemoryCalendarFrontend/",
+            iconUrl: "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+            maskableIconUrl: "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+            splashScreenFadeOutDuration: 300,
+            signingKey: [
+                path: "",
+                alias: ""
+            ],
+            fallbackType: "CUSTOM_TABS",
+            enableSiteSettingsShortcut: true,
+            orientation: "default"
+        ]
+        
+        manifestPlaceholders = [
+            hostName: twaManifest.hostName,
+            launchUrl: twaManifest.launchUrl,
+            name: twaManifest.name,
+            launcherName: twaManifest.launcherName,
+            themeColor: twaManifest.themeColor,
+            navigationColor: twaManifest.navigationColor,
+            navigationColorDark: twaManifest.navigationColorDark,
+            navigationDividerColor: twaManifest.navigationDividerColor,
+            navigationDividerColorDark: twaManifest.navigationDividerColorDark,
+            backgroundColor: twaManifest.backgroundColor,
+            enableNotifications: twaManifest.enableNotifications,
+            startUrl: twaManifest.startUrl,
+            iconUrl: twaManifest.iconUrl,
+            maskableIconUrl: twaManifest.maskableIconUrl,
+            splashScreenFadeOutDuration: twaManifest.splashScreenFadeOutDuration,
+            fallbackType: twaManifest.fallbackType,
+            enableSiteSettingsShortcut: twaManifest.enableSiteSettingsShortcut,
+            orientation: twaManifest.orientation
+        ]
+    }
+    
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    namespace 'com.github.thememorycalendar'
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

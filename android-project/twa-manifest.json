@@ -1,0 +1,45 @@
+{
+  "packageId": "com.github.thememorycalendar",
+  "host": "rickkent48-collab.github.io",
+  "name": "The Memory Calendar",
+  "launcherName": "Memory Calendar",
+  "display": "standalone",
+  "themeColor": "#ffffff",
+  "navigationColor": "#ffffff",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": false,
+  "startUrl": "/TheMemoryCalendarFrontend/",
+  "iconUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+  "maskableIconUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/icons/app-icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "",
+    "alias": ""
+  },
+  "appVersionName": "1.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://rickkent48-collab.github.io/TheMemoryCalendarFrontend/manifest.webmanifest",
+  "fallbackType": "CUSTOM_TABS",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0"
+}
