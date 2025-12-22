@@ -1,4 +1,4 @@
-name: Build Unsigned TWA App Bundle
+name: Build Signed TWA App Bundle
 
 on:
   workflow_dispatch:
@@ -75,12 +75,88 @@ jobs:
           sdkmanager --list_installed
           echo "::endgroup::"
       
+      - name: Generate upload keystore
+        run: |
+          set -euo pipefail
+          
+          echo "::group::Generating upload keystore"
+          
+          # Generate random passwords for keystore and key
+          KEYSTORE_PASSWORD=$(openssl rand -base64 32)
+          KEY_PASSWORD=$(openssl rand -base64 32)
+          
+          # Generate PKCS12 keystore with alias "upload"
+          keytool -genkeypair \
+            -alias upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -keystore upload-keystore.jks \
+            -storetype PKCS12 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -dname "CN=The Memory Calendar, OU=Development, O=rickkent48-collab, L=Unknown, ST=Unknown, C=US"
+          
+          echo "✓ Keystore generated: upload-keystore.jks"
+          
+          # Save credentials to file for artifact upload
+          cat > keystore-credentials.txt << EOF
+          Keystore: upload-keystore.jks
+          Store Type: PKCS12
+          Key Alias: upload
+          Store Password: $KEYSTORE_PASSWORD
+          Key Password: $KEY_PASSWORD
+          
+          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          EOF
+          
+          echo "✓ Credentials saved to keystore-credentials.txt"
+          
+          # Export environment variables for Gradle signing
+          echo "SIGN_STORE_FILE=$PWD/upload-keystore.jks" >> $GITHUB_ENV
+          echo "SIGN_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "SIGN_KEY_ALIAS=upload" >> $GITHUB_ENV
+          echo "SIGN_KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+          
+          echo "::endgroup::"
+      
+      - name: Verify keystore entry
+        run: |
+          set -euo pipefail
+          
+          echo "::group::Verifying keystore entry"
+          
+          # List keystore contents to verify entry type
+          keytool -list -v \
+            -keystore upload-keystore.jks \
+            -storetype PKCS12 \
+            -storepass "$SIGN_STORE_PASSWORD" \
+            | grep -A 5 "Alias name: upload"
+          
+          # Verify it's a PrivateKeyEntry
+          ENTRY_TYPE=$(keytool -list -v \
+            -keystore upload-keystore.jks \
+            -storetype PKCS12 \
+            -storepass "$SIGN_STORE_PASSWORD" \
+            | grep "Entry type:" | head -1 | awk '{print $3}')
+          
+          echo ""
+          echo "Entry type: $ENTRY_TYPE"
+          
+          if [ "$ENTRY_TYPE" = "PrivateKeyEntry" ]; then
+            echo "✓ Keystore entry verified as PrivateKeyEntry"
+          else
+            echo "⚠ Warning: Entry type is $ENTRY_TYPE (expected PrivateKeyEntry)"
+          fi
+          
+          echo "::endgroup::"
+      
       - name: Build release app bundle
         working-directory: android-project
         run: |
           set -euo pipefail
           
-          echo "::group::Building release app bundle"
+          echo "::group::Building signed release app bundle"
           
           # Verify gradlew exists
           if [ ! -f "gradlew" ]; then
@@ -90,14 +166,14 @@ jobs:
             exit 1
           fi
           
-          # Build the release app bundle using Gradle
+          # Build the release app bundle using Gradle with signing
           chmod +x gradlew
           ./gradlew --stacktrace --no-daemon bundleRelease
           
-          echo "✓ App bundle built successfully"
+          echo "✓ Signed app bundle built successfully"
           echo "::endgroup::"
       
-      - name: Copy unsigned AAB to repository root
+      - name: Copy signed AAB to repository root
         run: |
           set -euo pipefail
           
@@ -107,29 +183,31 @@ jobs:
             exit 1
           fi
           
-          echo "Found unsigned AAB: $AAB_PATH"
-          cp "$AAB_PATH" TheMemoryCalendar-release-unsigned.aab
-          echo "Copied to: TheMemoryCalendar-release-unsigned.aab"
-          ls -lh TheMemoryCalendar-release-unsigned.aab
+          echo "Found signed AAB: $AAB_PATH"
+          cp "$AAB_PATH" TheMemoryCalendar-release-signed.aab
+          echo "Copied to: TheMemoryCalendar-release-signed.aab"
+          ls -lh TheMemoryCalendar-release-signed.aab
       
       - name: Generate job summary
         run: |
           set -euo pipefail
           
           cat >> $GITHUB_STEP_SUMMARY << EOF
-          # ✅ TWA Unsigned App Bundle Build Complete
+          # ✅ TWA Signed App Bundle Build Complete
           
-          ## 📦 Artifact
-          The unsigned Android App Bundle has been uploaded:
-          - **TheMemoryCalendar-release-unsigned.aab** - Unsigned bundle ready for Play Console
+          ## 📦 Artifacts
+          The signed Android App Bundle and keystore have been uploaded:
+          - **TheMemoryCalendar-release-signed.aab** - Signed bundle ready for Play Console
+          - **upload-keystore.jks** - PKCS12 keystore used for signing
+          - **keystore-credentials.txt** - Keystore passwords and details
           
           ## 🚀 Next Steps: Play App Signing Setup
           
           ### 1. Upload to Google Play Console
-          - Download the artifact \`app-bundle-unsigned\` from this workflow run
+          - Download the artifact \`app-bundle-signed\` from this workflow run
           - Go to [Google Play Console](https://play.google.com/console)
           - Navigate to your app → **Internal testing** track
-          - Create a new release and upload \`TheMemoryCalendar-release-unsigned.aab\`
+          - Create a new release and upload \`TheMemoryCalendar-release-signed.aab\`
           
           ### 2. Enable Play App Signing
           - During the first upload, Google will prompt you to enable **Play App Signing**
@@ -162,11 +240,15 @@ jobs:
           - Branch: \`${{ github.ref_name }}\`
           - Commit: \`${{ github.sha }}\`
           - Run ID: \`${{ github.run_id }}\`
+          - Signing: Gradle signingConfigs (PKCS12 keystore)
           EOF
       
-      - name: Upload unsigned AAB
+      - name: Upload signed AAB and keystore
         uses: actions/upload-artifact@v4
         with:
-          name: app-bundle-unsigned
-          path: TheMemoryCalendar-release-unsigned.aab
+          name: app-bundle-signed
+          path: |
+            TheMemoryCalendar-release-signed.aab
+            upload-keystore.jks
+            keystore-credentials.txt
           retention-days: 90
