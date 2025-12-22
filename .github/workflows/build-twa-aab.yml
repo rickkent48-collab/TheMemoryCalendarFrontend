@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ TWA Unsigned App Bundle Build Complete
           
           ## 📦 Artifact
@@ -126,10 +126,10 @@ jobs:
           ## 🚀 Next Steps: Play App Signing Setup
           
           ### 1. Upload to Google Play Console
-          - Download the artifact `app-bundle-unsigned` from this workflow run
+          - Download the artifact \`app-bundle-unsigned\` from this workflow run
           - Go to [Google Play Console](https://play.google.com/console)
           - Navigate to your app → **Internal testing** track
-          - Create a new release and upload `TheMemoryCalendar-release-unsigned.aab`
+          - Create a new release and upload \`TheMemoryCalendar-release-unsigned.aab\`
           
           ### 2. Enable Play App Signing
           - During the first upload, Google will prompt you to enable **Play App Signing**
@@ -140,11 +140,11 @@ jobs:
           After enabling Play App Signing:
           1. Go to **Play Console → Setup → App signing**
           2. Copy the **App signing key certificate SHA-256 fingerprint**
-          3. Update the `assetlinks.json` file at:
-             ```
+          3. Update the \`assetlinks.json\` file at:
+             \`\`\`
              https://rickkent48-collab.github.io/.well-known/assetlinks.json
-             ```
-          4. Replace the SHA-256 fingerprint in the `sha256_cert_fingerprints` array with the one from Play Console
+             \`\`\`
+          4. Replace the SHA-256 fingerprint in the \`sha256_cert_fingerprints\` array with the one from Play Console
           
           ### 4. Verify TWA Integration
           - Install the app from Internal Testing on your device
@@ -159,9 +159,9 @@ jobs:
           
           **Build Info:**
           - Workflow: Build Unsigned TWA App Bundle
-          - Branch: `main`
-          - Commit: `${{ github.sha }}`
-          - Build Time: `$(date -u +"%Y-%m-%d %H:%M:%S UTC")`
+          - Branch: \`${{ github.ref_name }}\`
+          - Commit: \`${{ github.sha }}\`
+          - Run ID: \`${{ github.run_id }}\`
           EOF
       
       - name: Upload unsigned AAB
