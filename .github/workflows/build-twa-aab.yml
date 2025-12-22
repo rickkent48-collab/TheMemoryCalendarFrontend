@@ -1,4 +1,4 @@
-name: Build Signed TWA App Bundle
+name: Build Unsigned TWA App Bundle
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
 jobs:
   build-twa:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     
     steps:
       - name: Checkout repository
@@ -17,6 +17,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
       
       - name: Set up Android SDK
         run: |
@@ -74,49 +75,6 @@ jobs:
           sdkmanager --list_installed
           echo "::endgroup::"
       
-      - name: Generate keystore passwords
-        id: keystore-passwords
-        run: |
-          set -euo pipefail
-          
-          # Generate random passwords for keystore
-          KEYSTORE_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
-          KEY_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
-          
-          echo "keystore_password=$KEYSTORE_PASSWORD" >> $GITHUB_OUTPUT
-          echo "key_password=$KEY_PASSWORD" >> $GITHUB_OUTPUT
-          
-          echo "Generated keystore passwords"
-      
-      - name: Generate upload keystore (PKCS12) and verify
-        id: gen-keystore
-        env:
-          KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
-          KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
-        run: |
-          set -euo pipefail
-          keytool -genkeypair -v \
-            -keystore upload-keystore.jks \
-            -storetype PKCS12 \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -alias upload \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -keypass "$KEY_PASSWORD" \
-            -dname "CN=The Memory Calendar, OU=Development, O=GitHub, L=Unknown, ST=Unknown, C=US"
-
-          echo "::group::Verify keystore entry type"
-          # Display first 120 lines of keystore info for diagnostics (avoids log overflow)
-          keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | sed -n '1,120p' || true
-          ENTRY_TYPE=$(keytool -list -v -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -alias upload | grep -i "Entry type" | awk -F: '{print $2}' | tr -d ' ')
-          echo "Entry type: $ENTRY_TYPE"
-          if [ "$ENTRY_TYPE" != "PrivateKeyEntry" ]; then
-            echo "::error::Keystore alias 'upload' is not a PrivateKeyEntry (got '$ENTRY_TYPE'). Signing cannot proceed."
-            exit 1
-          fi
-          echo "::endgroup::"
-      
       - name: Build release app bundle
         working-directory: android-project
         run: |
@@ -139,139 +97,76 @@ jobs:
           echo "✓ App bundle built successfully"
           echo "::endgroup::"
       
-      - name: Sign the app bundle (PKCS12) and produce signed output
-        env:
-          KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
-          KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
+      - name: Copy unsigned AAB to repository root
         run: |
           set -euo pipefail
+          
           AAB_PATH=$(find android-project/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
           if [ -z "$AAB_PATH" ]; then
             echo "::error::Could not find AAB file in app/build/outputs/bundle/release"
             exit 1
           fi
-          echo "Unsigned AAB: $AAB_PATH"
-
-          jarsigner -verbose \
-            -keystore upload-keystore.jks \
-            -storetype PKCS12 \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -keypass "$KEY_PASSWORD" \
-            -sigalg SHA256withRSA \
-            -digestalg SHA-256 \
-            -signedjar TheMemoryCalendar-release-signed.aab \
-            "$AAB_PATH" \
-            upload
-
-          echo "Signed AAB: TheMemoryCalendar-release-signed.aab"
-      
-      - name: Get upload key SHA-256 fingerprint
-        id: fingerprint
-        env:
-          KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
-        run: |
-          set -euo pipefail
           
-          # Get the SHA-256 fingerprint of the upload key
-          FINGERPRINT=$(keytool -list -v \
-            -keystore upload-keystore.jks \
-            -alias upload \
-            -storepass "$KEYSTORE_PASSWORD" | \
-            grep "SHA256:" | \
-            sed 's/.*SHA256: //')
-          
-          echo "fingerprint=$FINGERPRINT" >> $GITHUB_OUTPUT
-          echo "Upload Key SHA-256 Fingerprint: $FINGERPRINT"
-      
-      - name: Create credentials file
-        env:
-          KEYSTORE_PASSWORD: ${{ steps.keystore-passwords.outputs.keystore_password }}
-          KEY_PASSWORD: ${{ steps.keystore-passwords.outputs.key_password }}
-          FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
-        run: |
-          set -euo pipefail
-          
-          cat > keystore-credentials.txt << EOF
-          Upload Keystore Credentials
-          ============================
-          
-          Keystore file: upload-keystore.jks
-          Keystore alias: upload
-          Keystore password: $KEYSTORE_PASSWORD
-          Key password: $KEY_PASSWORD
-          
-          Upload Key SHA-256 Fingerprint:
-          $FINGERPRINT
-          
-          IMPORTANT NOTES:
-          ================
-          1. Keep this keystore and passwords safe! You'll need them for future app updates.
-          2. The SHA-256 fingerprint above is for the UPLOAD key.
-          3. After enabling Play App Signing in Google Play Console, you must update
-             the assetlinks.json file with the APP SIGNING key fingerprint (not this one).
-          4. Get the App Signing key SHA-256 from Play Console > Setup > App signing
-          5. Update: https://rickkent48-collab.github.io/.well-known/assetlinks.json
-          EOF
-          
-          echo "Credentials file created"
+          echo "Found unsigned AAB: $AAB_PATH"
+          cp "$AAB_PATH" TheMemoryCalendar-release-unsigned.aab
+          echo "Copied to: TheMemoryCalendar-release-unsigned.aab"
+          ls -lh TheMemoryCalendar-release-unsigned.aab
       
       - name: Generate job summary
-        env:
-          FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
         run: |
           set -euo pipefail
           
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          # ✅ TWA App Bundle Build Complete
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          # ✅ TWA Unsigned App Bundle Build Complete
           
-          ## Upload Key SHA-256 Fingerprint
-          \`\`\`
-          $FINGERPRINT
-          \`\`\`
+          ## 📦 Artifact
+          The unsigned Android App Bundle has been uploaded:
+          - **TheMemoryCalendar-release-unsigned.aab** - Unsigned bundle ready for Play Console
           
-          ## 📦 Artifacts
-          The following artifacts have been uploaded:
-          - **TheMemoryCalendar-release-signed.aab** - Signed Android App Bundle
-          - **upload-keystore.jks** - Upload keystore (keep this safe!)
-          - **keystore-credentials.txt** - Keystore credentials and passwords
+          ## 🚀 Next Steps: Play App Signing Setup
           
-          ## ⚠️ Important Next Steps
+          ### 1. Upload to Google Play Console
+          - Download the artifact `app-bundle-unsigned` from this workflow run
+          - Go to [Google Play Console](https://play.google.com/console)
+          - Navigate to your app → **Internal testing** track
+          - Create a new release and upload `TheMemoryCalendar-release-unsigned.aab`
           
-          1. **Download all artifacts** from this workflow run
-          2. **Keep the keystore and credentials safe** - you'll need them for future updates
-          3. **Upload the .aab to Google Play Console** (Internal Testing track)
-          4. **Enable Play App Signing** in Play Console
-          5. **Get the App Signing key SHA-256** from Play Console > Setup > App signing
-          6. **Update assetlinks.json** with the App Signing key (NOT the upload key shown above)
-             - File location: \`https://rickkent48-collab.github.io/.well-known/assetlinks.json\`
-             - Use the SHA-256 from Play Console App Signing, not the upload key
+          ### 2. Enable Play App Signing
+          - During the first upload, Google will prompt you to enable **Play App Signing**
+          - Accept and let Google manage your app signing key
+          - Google will re-sign your AAB with their managed key
           
-          ## 📱 Testing
-          After updating assetlinks.json:
-          - Install the internal test build on your device
-          - The app should open fullscreen without the URL bar
-          - Verify the TWA is working correctly
+          ### 3. Update assetlinks.json with App Signing Key
+          After enabling Play App Signing:
+          1. Go to **Play Console → Setup → App signing**
+          2. Copy the **App signing key certificate SHA-256 fingerprint**
+          3. Update the `assetlinks.json` file at:
+             ```
+             https://rickkent48-collab.github.io/.well-known/assetlinks.json
+             ```
+          4. Replace the SHA-256 fingerprint in the `sha256_cert_fingerprints` array with the one from Play Console
           
-          See [README-TWA-BUILD.md](.github/workflows/README-TWA-BUILD.md) for detailed instructions.
+          ### 4. Verify TWA Integration
+          - Install the app from Internal Testing on your device
+          - The app should open fullscreen without the browser URL bar
+          - If you see a URL bar, verify the assetlinks.json SHA-256 matches exactly
+          
+          ## 📚 Additional Resources
+          - [Play App Signing Documentation](https://support.google.com/googleplay/android-developer/answer/9842756)
+          - [Trusted Web Activity Overview](https://developer.chrome.com/docs/android/trusted-web-activity/)
+          
+          ---
+          
+          **Build Info:**
+          - Workflow: Build Unsigned TWA App Bundle
+          - Branch: `main`
+          - Commit: `${{ github.sha }}`
+          - Build Time: `$(date -u +"%Y-%m-%d %H:%M:%S UTC")`
           EOF
       
-      - name: Upload signed AAB
+      - name: Upload unsigned AAB
         uses: actions/upload-artifact@v4
         with:
-          name: signed-app-bundle
-          path: TheMemoryCalendar-release-signed.aab
-          retention-days: 90
-      
-      - name: Upload keystore
-        uses: actions/upload-artifact@v4
-        with:
-          name: upload-keystore
-          path: upload-keystore.jks
-          retention-days: 90
-      
-      - name: Upload credentials
-        uses: actions/upload-artifact@v4
-        with:
-          name: keystore-credentials
-          path: keystore-credentials.txt
+          name: app-bundle-unsigned
+          path: TheMemoryCalendar-release-unsigned.aab
           retention-days: 90
