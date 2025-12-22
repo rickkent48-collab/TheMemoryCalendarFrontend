@@ -59,7 +59,7 @@ jobs:
           echo "::group::Installing Android SDK components"
           # Install required SDK components
           echo "Installing Android SDK components..."
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           echo "::endgroup::"
           
           echo "::group::Verifying Android SDK installation"
