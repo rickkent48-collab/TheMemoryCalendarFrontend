@@ -158,7 +158,7 @@ jobs:
           ---
           
           **Build Info:**
-          - Workflow: Build Unsigned TWA App Bundle
+          - Workflow: \`${{ github.workflow }}\`
           - Branch: \`${{ github.ref_name }}\`
           - Commit: \`${{ github.sha }}\`
           - Run ID: \`${{ github.run_id }}\`
