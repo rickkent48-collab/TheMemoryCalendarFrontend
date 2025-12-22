@@ -85,14 +85,14 @@ jobs:
           KEYSTORE_PASSWORD=$(openssl rand -base64 32)
           KEY_PASSWORD=$(openssl rand -base64 32)
           
-          # Generate PKCS12 keystore with alias "upload"
+          # Generate JKS keystore with alias "upload"
           keytool -genkeypair \
             -alias upload \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
             -keystore upload-keystore.jks \
-            -storetype PKCS12 \
+            -storetype JKS \
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
             -dname "CN=The Memory Calendar, OU=Development, O=rickkent48-collab, L=Unknown, ST=Unknown, C=US"
@@ -102,7 +102,7 @@ jobs:
           # Save credentials to file for artifact upload
           cat > keystore-credentials.txt << EOF
           Keystore: upload-keystore.jks
-          Store Type: PKCS12
+          Store Type: JKS
           Key Alias: upload
           Store Password: $KEYSTORE_PASSWORD
           Key Password: $KEY_PASSWORD
@@ -113,7 +113,7 @@ jobs:
           echo "✓ Credentials saved to keystore-credentials.txt"
           
           # Export environment variables for Gradle signing
-          echo "SIGN_STORE_FILE=$PWD/upload-keystore.jks" >> $GITHUB_ENV
+          echo "SIGN_STORE_FILE=$GITHUB_WORKSPACE/upload-keystore.jks" >> $GITHUB_ENV
           echo "SIGN_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
           echo "SIGN_KEY_ALIAS=upload" >> $GITHUB_ENV
           echo "SIGN_KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
@@ -129,14 +129,14 @@ jobs:
           # List keystore contents to verify entry type
           keytool -list -v \
             -keystore upload-keystore.jks \
-            -storetype PKCS12 \
+            -storetype JKS \
             -storepass "$SIGN_STORE_PASSWORD" \
             | grep -A 5 "Alias name: upload"
           
           # Verify it's a PrivateKeyEntry
           ENTRY_TYPE=$(keytool -list -v \
             -keystore upload-keystore.jks \
-            -storetype PKCS12 \
+            -storetype JKS \
             -storepass "$SIGN_STORE_PASSWORD" \
             | grep "Entry type:" | head -1 | awk '{print $3}')
           
@@ -198,7 +198,7 @@ jobs:
           ## 📦 Artifacts
           The signed Android App Bundle and keystore have been uploaded:
           - **TheMemoryCalendar-release-signed.aab** - Signed bundle ready for Play Console
-          - **upload-keystore.jks** - PKCS12 keystore used for signing
+          - **upload-keystore.jks** - JKS keystore used for signing
           - **keystore-credentials.txt** - Keystore passwords and details
           
           ## 🚀 Next Steps: Play App Signing Setup
@@ -240,7 +240,7 @@ jobs:
           - Branch: \`${{ github.ref_name }}\`
           - Commit: \`${{ github.sha }}\`
           - Run ID: \`${{ github.run_id }}\`
-          - Signing: Gradle signingConfigs (PKCS12 keystore)
+          - Signing: Gradle signingConfigs (JKS keystore)
           EOF
       
       - name: Upload signed AAB and keystore
