@@ -93,9 +93,18 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Keystore fingerprints"
-          keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" | sed -n '1,120p' || true
-          SHA1=$(keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" | grep "SHA1:" | sed 's/.*SHA1: //')
-          SHA256=$(keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" | grep "SHA256:" | sed 's/.*SHA256: //')
+          
+          # Get keystore info once and reuse
+          KEYSTORE_INFO=$(keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" 2>/dev/null || true)
+          
+          # Display first 120 lines for diagnostics
+          echo "$KEYSTORE_INFO" | sed -n '1,120p'
+          
+          # Extract fingerprints
+          SHA1=$(echo "$KEYSTORE_INFO" | grep "SHA1:" | sed 's/.*SHA1: //')
+          SHA256=$(echo "$KEYSTORE_INFO" | grep "SHA256:" | sed 's/.*SHA256: //')
+          
+          echo ""
           echo "UPLOAD KEY SHA1:   $SHA1"
           echo "UPLOAD KEY SHA256: $SHA256"
           echo "KEYSTORE_SHA1=$SHA1" >> $GITHUB_ENV
