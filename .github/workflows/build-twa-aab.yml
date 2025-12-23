@@ -95,14 +95,23 @@ jobs:
           echo "::group::Keystore fingerprints"
           
           # Get keystore info once and reuse
+          # Note: Password is passed via environment variable, not command line args
           KEYSTORE_INFO=$(keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" 2>/dev/null || true)
           
           # Display first 120 lines for diagnostics
           echo "$KEYSTORE_INFO" | sed -n '1,120p'
           
-          # Extract fingerprints
-          SHA1=$(echo "$KEYSTORE_INFO" | grep "SHA1:" | sed 's/.*SHA1: //')
-          SHA256=$(echo "$KEYSTORE_INFO" | grep "SHA256:" | sed 's/.*SHA256: //')
+          # Extract fingerprints with validation
+          SHA1=$(echo "$KEYSTORE_INFO" | grep "SHA1:" | sed 's/.*SHA1: //' | tr -d '[:space:]')
+          SHA256=$(echo "$KEYSTORE_INFO" | grep "SHA256:" | sed 's/.*SHA256: //' | tr -d '[:space:]')
+          
+          # Validate fingerprints were extracted
+          if [ -z "$SHA1" ] || [ -z "$SHA256" ]; then
+            echo "::error::Failed to extract keystore fingerprints"
+            echo "SHA1: ${SHA1:-empty}"
+            echo "SHA256: ${SHA256:-empty}"
+            exit 1
+          fi
           
           echo ""
           echo "UPLOAD KEY SHA1:   $SHA1"
