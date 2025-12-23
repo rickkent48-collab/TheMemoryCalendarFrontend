@@ -75,84 +75,70 @@ jobs:
           sdkmanager --list_installed
           echo "::endgroup::"
       
-      - name: Generate upload keystore
+      - name: Restore upload keystore from secrets
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          
-          echo "::group::Generating upload keystore"
-          
-          # Generate random passwords for keystore and key
-          KEYSTORE_PASSWORD=$(openssl rand -base64 32)
-          KEY_PASSWORD=$(openssl rand -base64 32)
-          
-          # Generate JKS keystore with alias "upload"
-          keytool -genkeypair \
-            -alias upload \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -keystore upload-keystore.jks \
-            -storetype JKS \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -keypass "$KEY_PASSWORD" \
-            -dname "CN=The Memory Calendar, OU=Development, O=rickkent48-collab, L=Unknown, ST=Unknown, C=US"
-          
-          echo "✓ Keystore generated: upload-keystore.jks"
-          
-          # Save credentials to file for artifact upload
-          cat > keystore-credentials.txt << EOF
-          Keystore: upload-keystore.jks
-          Store Type: JKS
-          Key Alias: upload
-          Store Password: $KEYSTORE_PASSWORD
-          Key Password: $KEY_PASSWORD
-          
-          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          EOF
-          
-          echo "✓ Credentials saved to keystore-credentials.txt"
-          
-          # Export environment variables for Gradle signing
-          echo "SIGN_STORE_FILE=$GITHUB_WORKSPACE/upload-keystore.jks" >> $GITHUB_ENV
-          echo "SIGN_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
-          echo "SIGN_KEY_ALIAS=upload" >> $GITHUB_ENV
-          echo "SIGN_KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
-          
-          echo "::endgroup::"
+          if [ -z "${UPLOAD_KEYSTORE_BASE64:-}" ]; then
+            echo "::error::UPLOAD_KEYSTORE_BASE64 secret is missing"
+            exit 1
+          fi
+          echo "$UPLOAD_KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
       
-      - name: Verify keystore entry
+      - name: Show keystore fingerprints (diagnostics)
+        env:
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
         run: |
           set -euo pipefail
+          echo "::group::Keystore fingerprints"
           
-          echo "::group::Verifying keystore entry"
+          # Get keystore info once and reuse
+          # Note: Password is passed via environment variable, not command line args
+          KEYSTORE_INFO=$(keytool -list -v -keystore upload-keystore.jks -alias "$UPLOAD_KEY_ALIAS" -storepass "$UPLOAD_KEYSTORE_PASSWORD" 2>/dev/null || true)
           
-          # List keystore contents to verify entry type
-          keytool -list -v \
-            -keystore upload-keystore.jks \
-            -storetype JKS \
-            -storepass "$SIGN_STORE_PASSWORD" \
-            | grep -A 5 "Alias name: upload"
+          # Display first 120 lines for diagnostics
+          echo "$KEYSTORE_INFO" | sed -n '1,120p'
           
-          # Verify it's a PrivateKeyEntry
-          ENTRY_TYPE=$(keytool -list -v \
-            -keystore upload-keystore.jks \
-            -storetype JKS \
-            -storepass "$SIGN_STORE_PASSWORD" \
-            | grep "Entry type:" | head -1 | awk '{print $3}')
+          # Extract fingerprints with validation
+          SHA1=$(echo "$KEYSTORE_INFO" | grep "SHA1:" | sed 's/.*SHA1: //' | tr -d '[:space:]')
+          SHA256=$(echo "$KEYSTORE_INFO" | grep "SHA256:" | sed 's/.*SHA256: //' | tr -d '[:space:]')
           
-          echo ""
-          echo "Entry type: $ENTRY_TYPE"
-          
-          if [ "$ENTRY_TYPE" = "PrivateKeyEntry" ]; then
-            echo "✓ Keystore entry verified as PrivateKeyEntry"
-          else
-            echo "⚠ Warning: Entry type is $ENTRY_TYPE (expected PrivateKeyEntry)"
+          # Validate fingerprints were extracted
+          if [ -z "$SHA1" ] || [ -z "$SHA256" ]; then
+            echo "::error::Failed to extract keystore fingerprints"
+            echo "SHA1: ${SHA1:-empty}"
+            echo "SHA256: ${SHA256:-empty}"
+            exit 1
           fi
           
+          echo ""
+          echo "UPLOAD KEY SHA1:   $SHA1"
+          echo "UPLOAD KEY SHA256: $SHA256"
+          echo "KEYSTORE_SHA1=$SHA1" >> $GITHUB_ENV
+          echo "KEYSTORE_SHA256=$SHA256" >> $GITHUB_ENV
           echo "::endgroup::"
+          
+          # Create credentials file for reference
+          cat > keystore-credentials.txt << EOF
+          Keystore: upload-keystore.jks (permanent)
+          Store Type: JKS
+          Key Alias: $UPLOAD_KEY_ALIAS
+          SHA1:   $SHA1
+          SHA256: $SHA256
+          
+          Note: This is a permanent keystore managed via GitHub Secrets.
+          Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          EOF
       
-      - name: Build release app bundle
+      - name: Build signed release app bundle (Gradle signing)
         working-directory: android-project
+        env:
+          SIGN_STORE_FILE: ${{ github.workspace }}/upload-keystore.jks
+          SIGN_STORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          SIGN_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          SIGN_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           
@@ -195,13 +181,17 @@ jobs:
           cat >> $GITHUB_STEP_SUMMARY << EOF
           # ✅ TWA Signed App Bundle Build Complete
           
+          ## 🔐 Upload Key Fingerprints
+          - **SHA1:** \`$KEYSTORE_SHA1\`
+          - **SHA-256:** \`$KEYSTORE_SHA256\`
+          
           ## 📦 Artifacts
           The signed Android App Bundle and keystore have been uploaded:
           - **TheMemoryCalendar-release-signed.aab** - Signed bundle ready for Play Console
           - **upload-keystore.jks** - JKS keystore used for signing
-          - **keystore-credentials.txt** - Keystore passwords and details
+          - **keystore-credentials.txt** - Keystore alias information
           
-          ## 🚀 Next Steps: Play App Signing Setup
+          ## 🚀 Next Steps: Play Console Upload
           
           ### 1. Upload to Google Play Console
           - Download the artifact \`app-bundle-signed\` from this workflow run
@@ -209,25 +199,30 @@ jobs:
           - Navigate to your app → **Internal testing** track
           - Create a new release and upload \`TheMemoryCalendar-release-signed.aab\`
           
-          ### 2. Enable Play App Signing
+          ### 2. Verify Upload Key
+          - The uploaded AAB is signed with the **upload key** (fingerprints shown above)
+          - Google Play Console will verify this matches the expected upload key
+          - If this is your first upload, Play Console will register this upload key
+          
+          ### 3. Enable Play App Signing (if not already enabled)
           - During the first upload, Google will prompt you to enable **Play App Signing**
           - Accept and let Google manage your app signing key
-          - Google will re-sign your AAB with their managed key
+          - Google will re-sign your AAB with their managed key for distribution
           
-          ### 3. Update assetlinks.json with App Signing Key
+          ### 4. Update assetlinks.json with App Signing Key
           After enabling Play App Signing:
           1. Go to **Play Console → Setup → App signing**
-          2. Copy the **App signing key certificate SHA-256 fingerprint**
+          2. Copy the **App signing key certificate SHA-256 fingerprint** (different from upload key)
           3. Update the \`assetlinks.json\` file at:
              \`\`\`
              https://rickkent48-collab.github.io/.well-known/assetlinks.json
              \`\`\`
-          4. Replace the SHA-256 fingerprint in the \`sha256_cert_fingerprints\` array with the one from Play Console
+          4. Replace the SHA-256 fingerprint in the \`sha256_cert_fingerprints\` array with the **App signing key** from Play Console
           
-          ### 4. Verify TWA Integration
+          ### 5. Verify TWA Integration
           - Install the app from Internal Testing on your device
           - The app should open fullscreen without the browser URL bar
-          - If you see a URL bar, verify the assetlinks.json SHA-256 matches exactly
+          - If you see a URL bar, verify the assetlinks.json SHA-256 matches the **App signing key** exactly
           
           ## 📚 Additional Resources
           - [Play App Signing Documentation](https://support.google.com/googleplay/android-developer/answer/9842756)
@@ -240,7 +235,8 @@ jobs:
           - Branch: \`${{ github.ref_name }}\`
           - Commit: \`${{ github.sha }}\`
           - Run ID: \`${{ github.run_id }}\`
-          - Signing: Gradle signingConfigs (JKS keystore)
+          - Signing: Gradle signingConfigs (permanent JKS upload keystore)
+          - Target SDK: 35
           EOF
       
       - name: Upload signed AAB and keystore
