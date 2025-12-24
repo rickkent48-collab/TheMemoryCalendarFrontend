@@ -4323,6 +4323,8 @@
           gridEl.querySelectorAll('.pad').forEach(p=>p.remove());
         }
 
+        await rehydratePosterGrid(contentSection);
+
         const square=document.createElement('div');
         square.className='poster-square';
         document.getElementById('storePosterImgWrap').appendChild(square);
@@ -4356,6 +4358,41 @@
         }
         refreshProductDescriptions();
         updateCurrencyUI();
+      }
+
+      async function rehydratePosterGrid(contentSection){
+        try{
+          if(!contentSection) return;
+          const grid = contentSection.querySelector('.grid');
+          if(!grid) return;
+          const cells = grid.querySelectorAll('.day');
+          const loads = [];
+          cells.forEach(cell => {
+            const img = cell.querySelector('img');
+            if(!img) return;
+            const hasPhoto = cell.classList.contains('has-photo');
+            const src = img.getAttribute('src');
+            if(!hasPhoto || !src || img.style.display==='none'){
+              const key = cell.dataset.date;
+              const saved = getSavedPhoto(key);
+              if(saved){
+                img.src = saved;
+                img.style.display = 'block';
+                cell.classList.add('has-photo');
+              } else {
+                loads.push((async ()=>{
+                  const thumbUrl = await getSavedPhotoThumbnail(key);
+                  if(thumbUrl){
+                    img.src = thumbUrl;
+                    img.style.display = 'block';
+                    cell.classList.add('has-photo');
+                  }
+                })());
+              }
+            }
+          });
+          if(loads.length>0){ await Promise.all(loads); }
+        }catch(e){ console.error('Poster rehydrate error:', e); }
       }
 
       function applySqueezedGradient(squareEl){
