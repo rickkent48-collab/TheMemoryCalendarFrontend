@@ -320,9 +320,9 @@
       /* Wrapper for vertically centering the summary text */
       flex:1;
       display:flex !important;
-      align-items:center;
-      justify-content:center;
-      margin-top:0;
+      align-items:center;         /* vertical centering */
+      justify-content:center;     /* horizontal centering for text node */
+      margin-top:0;               /* override generic margin to avoid offset */
       padding:10px 6px;
     }
 
@@ -3098,6 +3098,8 @@
       saveDayBtn.addEventListener('click', async ()=>{
         if(!isEditMode || !selectedDateKey) return;
         saveDayBtn.disabled=true;
+        // Show progress label following caps settings (CSS transforms apply)
+        saveDayBtn.textContent='saving...';
         const base=baseDateKey(selectedDateKey);
         
         // Handle photo persistence with IndexedDB for full + thumbnail
@@ -3228,6 +3230,8 @@
         hadSummary=hasExistingSummary();
         enterSummaryMode();
         showToast('saved');
+        // Restore button label
+        saveDayBtn.textContent='save';
         saveDayBtn.disabled=false;
         resetScreenScroll(dayModal);
       });
