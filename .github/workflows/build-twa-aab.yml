@@ -1,3 +1,4 @@
+# No-op change to force workflow re-registration after PR merge
 name: Build Signed TWA App Bundle
 
 on:
