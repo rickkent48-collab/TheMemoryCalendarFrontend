@@ -4162,12 +4162,17 @@
       }
 
       async function openStorePolaroidFS(year,month,day){
-        closeStoreDateFS();
+        // Build offscreen first while previous screen stays visible
         await buildStorePolaroid(year,month,day);
+
+        // Now open the polaroid overlay
         storePolaroidBackdrop.style.display='block';
         storePolaroidFS.style.display='flex';
         resetScreenScroll(storePolaroidFS);
         positionStorePolaroidSummary();
+
+        // Finally hide the previous screen
+        closeStoreDateFS();
       }
       function closeStorePolaroidFS(){
         storePolaroidBackdrop.style.display='none';
@@ -4236,11 +4241,16 @@
       }
 
       async function openStorePosterFS(year,month){
-        closeStoreMonthFS();
+        // Build offscreen first while previous screen stays visible
         await buildStorePoster(year,month);
+
+        // Now open the poster overlay
         storePosterBackdrop.style.display='block';
         storePosterFS.style.display='flex';
         resetScreenScroll(storePosterFS);
+
+        // Finally hide the previous screen
+        closeStoreMonthFS();
       }
       function closeStorePosterFS(){
         storePosterBackdrop.style.display='none';
