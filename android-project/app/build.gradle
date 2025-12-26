@@ -31,7 +31,7 @@ android {
                 path: "",
                 alias: ""
             ],
-            fallbackType: "CUSTOM_TABS",
+            fallbackType: "WEBVIEW",
             enableSiteSettingsShortcut: true,
             orientation: "default"
         ]
