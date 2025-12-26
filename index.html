@@ -880,6 +880,10 @@
     </button>
   </div>
 
+  <div id="offlineFirstRunBanner" style="display:none; position:fixed; z-index:5000; left:50%; transform:translateX(-50%); top:calc(var(--topbar-h) + 12px); max-width:92%; background:#ffffff; color:#000000; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.18); padding:12px 14px; text-align:center; font-weight:600; line-height:1.35;">
+  The first time launch of this app requires internet connection, please connect to the internet to continue
+</div>
+
   <div class="app" id="app">
     <div id="calCarousel" class="cal-carousel">
       <div class="cal-page" id="calPhoto"></div>
@@ -2411,17 +2415,22 @@
       window.addEventListener('orientationchange', setTopbarHeight);
       setTimeout(setTopbarHeight,150);
 
-      // Initialize calendar - wrapped in try-catch for startup robustness
-      try {
-        preloadYearAssets(YEAR);
-        buildYear(YEAR);
-      } catch (error) {
-        console.error('Calendar initialization error (non-fatal):', error);
-        // App continues running even if calendar build fails
-      }
-      
-      // Background migration: Move localStorage photos to IndexedDB with thumbnails
-      (async function migrateExistingPhotos(){
+      // First-run offline handling
+      const FIRST_RUN_DONE_KEY = 'first-run-done';
+      let _appInitStarted = false;
+
+      function startAppInitOnce(){
+        if(_appInitStarted) return;
+        _appInitStarted = true;
+        try {
+          // Existing initialization (unchanged)
+          preloadYearAssets(YEAR);
+          buildYear(YEAR);
+        } catch (error) {
+          console.error('Calendar initialization error (non-fatal):', error);
+        }
+        // Existing background migration and other setup continue as-is...
+        (async function migrateExistingPhotos(){
         try{
           const migrationPromises = [];
           const keysToMigrate = [];
@@ -2504,6 +2513,37 @@
           console.error('[Migration] Error (non-fatal):', err);
         }
       })();
+      }
+
+      function showOfflineFirstRunBanner(){
+        const banner = document.getElementById('offlineFirstRunBanner');
+        if(!banner) return;
+        banner.style.display = 'block';
+      }
+      function hideOfflineFirstRunBanner(){
+        const banner = document.getElementById('offlineFirstRunBanner');
+        if(!banner) return;
+        banner.style.display = 'none';
+      }
+
+      // First-run offline handling
+      const firstRunDone = !!(tryGet(FIRST_RUN_DONE_KEY));
+      if(!firstRunDone && !navigator.onLine){
+        // Show message and wait for connectivity
+        showOfflineFirstRunBanner();
+        const resume = () => {
+          hideOfflineFirstRunBanner();
+          trySet(FIRST_RUN_DONE_KEY, 'true');
+          // Proceed with normal initialization
+          startAppInitOnce();
+          window.removeEventListener('online', resume);
+        };
+        window.addEventListener('online', resume);
+      }else{
+        // Either not first run, or already online – proceed normally
+        startAppInitOnce();
+        if(!firstRunDone) trySet(FIRST_RUN_DONE_KEY, 'true');
+      }
 
       function preloadYearAssets(year){
         photoCache={}; emojiCache={};
