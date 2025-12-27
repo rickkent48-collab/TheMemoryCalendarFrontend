@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- Gradient tuned to match prior purple background: darker top-left to lighter bottom-right -->
+    <gradient
+        android:type="linear"
+        android:startColor="#5A2EA6"    <!-- deep purple -->
+        android:centerColor="#7A3BD9"   <!-- mid purple -->
+        android:endColor="#B175FF"      <!-- light purple -->
+        android:angle="315"/>            <!-- from top-left to bottom-right -->
+</shape>
