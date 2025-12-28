@@ -31,7 +31,7 @@ android {
                 path: "",
                 alias: ""
             ],
-            fallbackType: "WEBVIEW",
+            fallbackType: "INTENT",
             enableSiteSettingsShortcut: true,
             orientation: "default"
         ]
