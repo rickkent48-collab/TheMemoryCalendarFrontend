@@ -2608,7 +2608,7 @@
           if(thumbBlob){
             // Revoke old object URL if exists
             if(photoObjectURLCache[key]){
-              URL.revokeObjectURL(photoObjectURLCache[key]);
+              try { URL.revokeObjectURL(photoObjectURLCache[key]); } catch {}
             }
             // Create new object URL
             const objectUrl = URL.createObjectURL(thumbBlob);
@@ -2620,7 +2620,23 @@
           console.error('Error loading thumbnail from IndexedDB:', err);
         }
         
-        // Fallback to localStorage or sync getSavedPhoto
+        // NEW: If thumbnail is missing, fall back to full-resolution photo from IndexedDB
+        try{
+          const fullBlob = await idbGetPhoto(key);
+          if(fullBlob){
+            if(photoObjectURLCache[key]){
+              try { URL.revokeObjectURL(photoObjectURLCache[key]); } catch {}
+            }
+            const objectUrl = URL.createObjectURL(fullBlob);
+            photoCache[key] = objectUrl;
+            photoObjectURLCache[key] = objectUrl;
+            return objectUrl;
+          }
+        }catch(err){
+          console.error('Error loading full photo from IndexedDB:', err);
+        }
+        
+        // Fallback to localStorage/legacy
         return getSavedPhoto(key);
       }
       
